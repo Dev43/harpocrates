@@ -1,10 +1,8 @@
-use fhe_contract::add_vote;
+use crate::contract::add_vote;
 use std::io::prelude::*;
 use std::{error::Error, fs::File};
 use sunscreen::{Compiler, FheProgramFn};
-
-// main exports all the needed information from the FHE contract so we can have it on chain
-fn main() -> Result<(), Box<dyn Error>> {
+pub fn compile_contract() -> Result<(), Box<dyn Error>> {
     // first we compile the app
     let app = Compiler::new().fhe_program(add_vote).compile().unwrap();
 
@@ -18,8 +16,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     ))?;
     file.write_all(ser_app_json.as_bytes())?;
 
+    // reserializes the app
+    // let new_app: Application = serde_json::from_str(&ser_app_json).unwrap();
+
     // // Serializes the encrypted values
     // let ser = bincode::serialize(&a).unwrap();
     // let ser_json = serde_json::to_string(&a).unwrap();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_works() -> Result<(), Box<dyn Error>> {
+        compile_contract()
+    }
 }
