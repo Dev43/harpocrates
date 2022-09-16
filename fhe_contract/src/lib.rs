@@ -1,7 +1,6 @@
 use sunscreen::{
     fhe_program,
     types::{bfv::Signed, Cipher},
-    Compiler, Error, Runtime,
 };
 
 #[fhe_program(scheme = "bfv")]
@@ -20,6 +19,7 @@ pub fn add_vote(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sunscreen::{Compiler, Error, Runtime};
 
     #[test]
     fn it_works() -> Result<(), Error> {
