@@ -6,6 +6,8 @@
 
 For the tags, we need this information to be searchable. So the first tag
 
+The contract ID is the hash of the contract data x unix_timestamp.
+
 ```json
 {
   "App-Name": "harpocrates",
@@ -23,6 +25,7 @@ For the tags, we need this information to be searchable. So the first tag
 
 Note: it is assumed that if the argument says "\_\__enclosed_\_\_" we are talking about the data in the transaction.
 
+- [x] Deploy `{"action":"deploy", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}`
 - [ ] Vote `{"action":"vote", arguments: ["ID_OF_ARGUMENT_USED_OR_EMPTY_STRING", "\_\__enclosed_\_\_"], validity_proof:"ID_OF_VALIDITY_PROOF"}`
 - [ ] Decrypt `{"action":"decrypt", arguments:[], validity_proof:"ID_OF_VALIDITY_PROOF"}`
 

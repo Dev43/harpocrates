@@ -1,1 +1,3 @@
 target/
+arweave-key*
+.cache
