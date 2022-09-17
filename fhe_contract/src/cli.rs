@@ -1,7 +1,10 @@
 use clap::{Parser, Subcommand};
+use serde::{Deserialize, Serialize};
+use sunscreen::{Application, PublicKey, Runtime};
 
+use crate::calculator::{decrypt, get_initial_state};
 use crate::compiler::compile;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -16,6 +19,7 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// deploy
+    CreateNewUser {},
     Deploy {},
     FetchLatest {},
     PublishAction {
@@ -30,6 +34,12 @@ enum Commands {
         #[clap(short, long, action)]
         list: bool,
     },
+}
+
+#[derive(Serialize, Deserialize)]
+struct Keys {
+    pub pk: String,
+    pub sk: String,
 }
 
 fn write_to_file(name: String, data: String) -> Result<(), Box<dyn std::error::Error>> {
@@ -49,18 +59,55 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Not printing testing lists...");
             }
         }
+        Some(Commands::CreateNewUser {}) => {
+            let contract_json = compile().unwrap();
+
+            let app: Application = serde_json::from_str(&contract_json).unwrap();
+
+            let runtime = Runtime::new(app.params()).unwrap();
+
+            let (pk, sk) = runtime.generate_keys().unwrap();
+
+            write_to_file("pk.json".to_string(), (serde_json::to_string(&pk)).unwrap()).unwrap();
+            write_to_file("sk.json".to_string(), json!({ "sk": sk }).to_string()).unwrap();
+        }
         Some(Commands::Deploy {}) => {
-            let data = compile().unwrap();
+            let contract_json = compile().unwrap();
+            let app: Application = serde_json::from_str(&contract_json).unwrap();
 
-            let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
+            let runtime = Runtime::new(app.params()).unwrap();
 
-            let res = ar.deploy_contract(data).await?;
+            let pk_string = std::fs::read_to_string("./.cache/pk.json")
+                .expect("Should have been able to read the file");
 
-            println!("{} {}", res.0, res.1);
-            write_to_file(
-                "deployment.json".to_string(),
-                json!({"arweave_id": res.0, "contract_id": res.1}).to_string(),
-            )?;
+            let pk: PublicKey = serde_json::from_str(&pk_string).unwrap();
+
+            let raw_keys = std::fs::read_to_string("./.cache/sk.json")
+                .expect("Should have been able to read the file");
+            let keys: Value = serde_json::from_str(&raw_keys).unwrap();
+            let secret_k: Vec<u8> = serde_json::from_value(keys["sk"].clone()).unwrap();
+            println!("{:?}", secret_k);
+
+            let sk = runtime.bytes_to_private_key(&secret_k).unwrap();
+
+            println!("{:?}", sk);
+
+            let res = decrypt(&contract_json, pk, sk);
+
+            // let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
+
+            // let res = ar.deploy_contract(&contract_json).await?;
+
+            // println!("{} {}", res.0, res.1);
+            // write_to_file(
+            //     "deployment.json".to_string(),
+            //     json!({"arweave_id": res.0, "contract_id": res.1}).to_string(),
+            // )?;
+
+            // // get the init state, all vectors of 0
+            // get_initial_state(&contract_json, pk);
+
+            // ar.init_state(contract_id, initial_state)
         }
         Some(Commands::FetchLatest {}) => {
             let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
