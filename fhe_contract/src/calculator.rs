@@ -126,7 +126,7 @@ mod tests {
 
         let (counter_pk, _) = runtime.generate_keys()?;
 
-        let res = get_initial_state(&contract_json, &counter_pk);
+        let _ = get_initial_state(&contract_json, &counter_pk);
 
         Ok(())
     }

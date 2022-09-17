@@ -7,3 +7,5 @@ pub mod calculator;
 pub mod cli;
 
 pub mod arweave;
+
+pub mod snarkjs;
