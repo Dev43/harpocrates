@@ -16,3 +16,5 @@ prepare:
 #  WARNING DO NOT DO THIS IN PRODUCTION, THE ENTROPY IS MINIMAL
 	@echo "Step 2 of the ceremony"
 	 cd fhe_contract && (echo entropy! | ./circom/ceremony_step2.sh)
+
+	 @echo "You are now ready, a great welcome from Harpocrates!"
