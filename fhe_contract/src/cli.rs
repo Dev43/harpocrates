@@ -6,8 +6,9 @@ use sunscreen::{Application, Ciphertext, PrivateKey, PublicKey, Runtime};
 use crate::calculator::{calculate, decrypt, get_initial_state};
 use crate::compiler::compile;
 use crate::snarkjs::{generate_proof, generate_witness, verify_snark_proof};
+use futures::{future, FutureExt};
 use serde_json::{json, Value};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::prelude::*;
 use std::os::unix::prelude::PermissionsExt;
 
@@ -96,6 +97,9 @@ fn create_new_user() -> Result<(), Box<dyn std::error::Error>> {
 
     let (pk, sk) = runtime.generate_keys().unwrap();
 
+    #[allow(unused)]
+    fs::create_dir("./.cache");
+
     write_to_file("pk.json".to_string(), (serde_json::to_string(&pk)).unwrap()).unwrap();
     write_to_file("sk.json".to_string(), json!({ "sk": sk }).to_string()).unwrap();
     Ok(())
@@ -103,8 +107,6 @@ fn create_new_user() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn deploy() -> Result<String, Box<dyn std::error::Error>> {
     let contract_json = compile().unwrap();
-
-    let (pk, _) = get_main_keys();
 
     let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
 
@@ -124,16 +126,6 @@ async fn deploy() -> Result<String, Box<dyn std::error::Error>> {
     println!("Deploy: Arweave Tx ID: {} ", tx_id);
     println!("Deploy: Contract inner ID: {} ", contract_id);
 
-    // get the init state, all vectors of 0
-    let init_state = get_initial_state(&contract_json, &pk).unwrap();
-
-    let r = ar.initialize_state(&contract_id, init_state).await.unwrap();
-    println!("{:?}", r);
-
-    // we wait till mined (main txn for now)
-    let mined_res = ar.wait_till_mined(&r.0).await.unwrap();
-    println!("{:?}", mined_res);
-
     Ok(contract_id)
 }
 
@@ -144,7 +136,7 @@ async fn init_zk(id: &String) -> Result<(), Box<dyn std::error::Error>> {
 
     let verification_key = read_file("./circom/verification_key.json").unwrap();
     let vote_is_valid_0001_zkey = read_file("./circom/vote_is_valid_0001.zkey").unwrap();
-    let generate_witness = read_file("./bin/generate_witness").unwrap();
+    let generate_witness = read_file("./bin/generate_witness/generate_witness").unwrap();
 
     // TO DEPLOY - after the whole ceremony
     // verification_key.json
@@ -425,12 +417,21 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
             create_new_user()?;
             // deploy contract to arweave
             let contract_id = deploy().await?;
-            // initialize the zk states
-            init_zk(&contract_id).await?;
-            // init the state
-            init_state(&contract_id).await?;
-            // fetch the zk info to populate our cache
-            fetch_zk(&contract_id).await?;
+
+            let futures = vec![
+                // initialize the zk states
+                init_zk(&contract_id).boxed(),
+                // init the state
+                init_state(&contract_id).boxed(),
+                // fetch the zk info to populate our cache
+                fetch_zk(&contract_id).boxed(),
+            ];
+            let results = future::join_all(futures).await;
+
+            // we unwrap all ensuring no erro
+            for r in results {
+                r.unwrap();
+            }
             // vote on who we want
             vote(&contract_id, &1).await?;
             // fetch all the txn, the latest

@@ -79,8 +79,7 @@ impl Ar {
 
         tx = self.client.sign_transaction(tx).unwrap();
 
-        let res = self.client.post_transaction(&tx).await?;
-        println!("{:?}", res);
+        let _res = self.client.post_transaction(&tx).await?;
 
         Ok((tx.id.to_string(), contract_id))
     }
@@ -113,8 +112,7 @@ impl Ar {
 
         tx = self.client.sign_transaction(tx).unwrap();
 
-        let res = self.client.post_transaction(&tx).await?;
-        println!("{:?}", res);
+        let _res = self.client.post_transaction(&tx).await?;
 
         Ok((tx.id.to_string(), contract_id.to_string()))
     }
@@ -182,8 +180,7 @@ impl Ar {
 
         println!("Init: Arweave Tx ID: {} ", tx.id);
 
-        let res = self.client.post_transaction(&tx).await?;
-        println!("{:?}", res);
+        let _res = self.client.post_transaction(&tx).await?;
 
         Ok((tx.id.to_string(), contract_id.to_string()))
     }
@@ -221,8 +218,7 @@ impl Ar {
 
         println!("Vote: Arweave Tx ID: {} ", tx.id);
 
-        let res = self.client.post_transaction(&tx).await?;
-        println!("{:?}", res);
+        let _res = self.client.post_transaction(&tx).await?;
 
         Ok((tx.id.to_string(), contract_id.to_string()))
     }
@@ -423,22 +419,20 @@ mod tests {
     #[tokio::test]
     async fn it_waits_till_mined() -> Result<(), Box<dyn std::error::Error>> {
         let ar = Ar::new("./arweave-keyfile.json".to_string()).await;
-        let res = ar
+        let _res = ar
             .wait_till_mined("vPxIKj-kq7l1lXhVwJpNDIa1Xsz2lHR3TnpUDAHM4aQ")
             .await;
-        println!("{:?}", res);
         Ok(())
     }
 
     #[tokio::test]
     async fn graphql_query_test() -> Result<(), Box<dyn std::error::Error>> {
-        let res = zk_query(
+        let _res = zk_query(
             "28dygSSTZsbHVeOmEO69B0bS7aVzYWr2pFM1HCdosGg",
             ContractType::ZkSnark,
         )
         .await
         .unwrap();
-        println!("{:?}", res);
         Ok(())
     }
 }
