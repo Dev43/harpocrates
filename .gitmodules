@@ -1,0 +1,3 @@
+[submodule "fhe_contract/circom/circomlib"]
+	path = fhe_contract/circom/circomlib
+	url = https://github.com/iden3/circomlib.git
