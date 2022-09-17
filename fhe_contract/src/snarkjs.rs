@@ -5,9 +5,51 @@ pub fn verify_snark_proof() -> Result<String, Box<dyn std::error::Error>> {
     snarkjs
         .arg("-c")
         .arg("snarkjs groth16 verify ./circom/verification_key.json ./circom/public.json ./circom/proof.json ");
-    let hello_1 = snarkjs.output()?;
+    let output = snarkjs.output()?;
 
-    Ok(String::from_utf8(hello_1.stdout).unwrap())
+    let err = output.stderr;
+    if err.len() != 0 {
+        panic!("{}", String::from_utf8(err).unwrap())
+    }
+    Ok(String::from_utf8(output.stdout).unwrap())
+}
+
+pub fn generate_witness() -> Result<String, Box<dyn std::error::Error>> {
+    let mut snarkjs = Command::new("sh");
+    snarkjs.arg("-c").arg(
+        "./bin/generate_witness ./circom/vote_is_valid_js/vote_is_valid.wasm ./circom/input.json witness.wtns",
+    );
+    let output = snarkjs.output()?;
+
+    let err = output.stderr;
+    if err.len() != 0 {
+        panic!("{}", String::from_utf8(err).unwrap())
+    }
+    Ok(String::from_utf8(output.stdout).unwrap())
+}
+
+// TO DEPLOY - after the whole ceremony
+// verification_key.json
+// vote_is_valid_0001.zkey
+// vote_is_valid_0001.wasm
+// generate_witness.js.wasm
+
+// as part of proof
+// public.json
+// proof.json
+
+pub fn generate_proof() -> Result<String, Box<dyn std::error::Error>> {
+    let mut snarkjs = Command::new("sh");
+    snarkjs
+        .arg("-c")
+        .arg("snarkjs groth16 prove ./circom/vote_is_valid_0001.zkey ./circom/witness.wtns ./circom/proof.json ./circom/public.json");
+    let output = snarkjs.output()?;
+
+    let err = output.stderr;
+    if err.len() != 0 {
+        panic!("{}", String::from_utf8(err).unwrap())
+    }
+    Ok(String::from_utf8(output.stdout).unwrap())
 }
 
 #[cfg(test)]
@@ -15,7 +57,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_it() {
-        let _ = verify_snark_proof().unwrap();
+    fn test_it() -> Result<(), Box<dyn std::error::Error>> {
+        let r = verify_snark_proof()?;
+        println!("{}", r);
+        Ok(())
+    }
+
+    #[test]
+    fn test_it_2() -> Result<(), Box<dyn std::error::Error>> {
+        let r = generate_witness()?;
+        println!("{}", r);
+        Ok(())
+    }
+
+    #[test]
+    fn test_it_3() -> Result<(), Box<dyn std::error::Error>> {
+        let r = generate_proof()?;
+        println!("{}", r);
+        Ok(())
     }
 }
