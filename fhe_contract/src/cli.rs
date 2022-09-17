@@ -21,11 +21,22 @@ struct Cli {
 enum Commands {
     CreateNewUser {},
     Deploy {},
+    InitZkProof {
+        #[clap(value_parser)]
+        contract_id: String,
+    },
     InitState {
         #[clap(value_parser)]
         contract_id: String,
     },
-    FetchLatest {},
+    FetchLatest {
+        #[clap(value_parser)]
+        contract_id: String,
+    },
+    FetchZk {
+        #[clap(value_parser)]
+        contract_id: String,
+    },
     ComputeLatest {},
     Vote {
         #[clap(value_parser)]
@@ -47,6 +58,13 @@ struct Keys {
 struct Transactions {
     pub interactions: Vec<Value>,
     pub source: Vec<Value>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ZkInfo {
+    pub verification_key: Vec<u8>,
+    pub vote_is_valid_0001_zkey: Vec<u8>,
+    pub generate_witness: Vec<u8>,
 }
 
 fn write_to_file(name: String, data: String) -> Result<(), Box<dyn std::error::Error>> {
@@ -104,6 +122,46 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
             let mined_res = ar.wait_till_mined(&r.0).await.unwrap();
             println!("{:?}", mined_res);
         }
+        Some(Commands::InitZkProof { contract_id: id }) => {
+            let contract_id = id.clone();
+
+            let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
+
+            let verification_key = read_file("./circom/verification_key.json").unwrap();
+            let vote_is_valid_0001_zkey = read_file("./circom/vote_is_valid_0001.zkey").unwrap();
+            let generate_witness = read_file("./bin/generate_witness").unwrap();
+
+            // TO DEPLOY - after the whole ceremony
+            // verification_key.json
+            // vote_is_valid_0001.zkey
+            // generate_witness
+            let zk = ZkInfo {
+                verification_key: verification_key,
+                vote_is_valid_0001_zkey: vote_is_valid_0001_zkey,
+                generate_witness: generate_witness,
+            };
+
+            let zk_data = bincode::serialize(&zk).unwrap();
+
+            // let all: ZkInfo = bincode::deserialize(&zk_data).unwrap();
+
+            // let mut file = File::create(format!("./.cache/{}", "genny".to_string()))?;
+            // file.write_all(&all.generate_witness)?;
+
+            let res = ar.deploy_zksnark(&contract_id, zk_data).await?;
+            let tx_id = res.0;
+
+            println!("ZKSnark: Arweave Tx ID: {} ", tx_id);
+
+            // we wait till mined (main txn for now)
+            let mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
+            println!("{:?}", mined_res);
+
+            println!(
+                "ZKSnark: ZKSnark initialized\n Arweave Tx ID: {} \n For Contract ID: {}",
+                tx_id, contract_id
+            );
+        }
         Some(Commands::InitState { contract_id: cid }) => {
             let contract_json = compile().unwrap();
 
@@ -128,11 +186,24 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 contract_id
             );
         }
-        Some(Commands::FetchLatest {}) => {
+        Some(Commands::FetchLatest { contract_id: cid }) => {
+            let contract_id = cid.clone();
+
             let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
-            ar.fetch_latest_state("28dygSSTZsbHVeOmEO69B0bS7aVzYWr2pFM1HCdosGg".to_string())
+            ar.fetch_latest_state(contract_id.to_string())
                 .await
                 .unwrap();
+            println!(
+                "Successfully fetched transactions, it is located at .cache/transactions.json"
+            );
+        }
+        Some(Commands::FetchZk { contract_id: cid }) => {
+            let contract_id = cid.clone();
+
+            let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
+            ar.fetch_zk(contract_id.to_string()).await.unwrap();
+
+            println!("Successfully fetched Zk information, it is located at .cache/zksnark.bin");
         }
         Some(Commands::ComputeLatest {}) => {
             // we get the contract from source
@@ -273,4 +344,11 @@ fn get_main_keys() -> (PublicKey, PrivateKey) {
     let sk = runtime.bytes_to_private_key(&secret_k).unwrap();
 
     (pk, sk)
+}
+
+fn read_file(path: &str) -> std::io::Result<Vec<u8>> {
+    let mut file = File::open(path)?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
+    return Ok(buf);
 }

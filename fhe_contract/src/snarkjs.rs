@@ -28,12 +28,6 @@ pub fn generate_witness() -> Result<String, Box<dyn std::error::Error>> {
     Ok(String::from_utf8(output.stdout).unwrap())
 }
 
-// TO DEPLOY - after the whole ceremony
-// verification_key.json
-// vote_is_valid_0001.zkey
-// vote_is_valid_0001.wasm
-// generate_witness.js.wasm
-
 // as part of proof
 // public.json
 // proof.json

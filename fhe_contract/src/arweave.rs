@@ -19,6 +19,13 @@ pub struct Ar {
     client: Arweave,
 }
 
+#[derive(PartialEq, Copy, Clone)]
+enum ContractType {
+    Source,
+    Interaction,
+    ZkSnark,
+}
+
 impl Ar {
     pub async fn new(path: String) -> Self {
         let arweave = Arweave::from_keypair_path(
@@ -55,7 +62,7 @@ impl Ar {
 
         let action = r#"{"action":"deploy", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
 
-        let tags = self.create_tags(&contract_id, &unix_timestamp, action, true);
+        let tags = self.create_tags(&contract_id, &unix_timestamp, action, ContractType::Source);
 
         let mut tx = self
             .client
@@ -63,8 +70,8 @@ impl Ar {
                 contract_data.as_bytes().to_vec(),
                 Some(tags),
                 None,
-                // (60000000, 0) minimum price term for it to go through
-                (60000000, 0),
+                // (60000000, 60000000) minimum price term for it to go through
+                (60000000, 60000000),
                 false,
             )
             .await
@@ -78,16 +85,48 @@ impl Ar {
         Ok((tx.id.to_string(), contract_id))
     }
 
-    // fn create_and_send_tx() {}
+    pub async fn deploy_zksnark(
+        &self,
+        contract_id: &str,
+        contract_data: Vec<u8>,
+    ) -> Result<(String, String), Box<dyn std::error::Error>> {
+        let unix_timestamp = get_unix_timestamp();
+        // contract id is only the hash of the data and a unix timestamp -- this is only a POC - not secure as someone can change the unix timestamp
+
+        let action =
+            r#"{"action":"zk_snark", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
+
+        let tags = self.create_tags(&contract_id, &unix_timestamp, action, ContractType::ZkSnark);
+
+        let mut tx = self
+            .client
+            .create_transaction(
+                contract_data,
+                Some(tags),
+                None,
+                // (60000000, 60000000) minimum price term for it to go through
+                (60000000, 60000000),
+                false,
+            )
+            .await
+            .unwrap();
+
+        tx = self.client.sign_transaction(tx).unwrap();
+
+        let res = self.client.post_transaction(&tx).await?;
+        println!("{:?}", res);
+
+        Ok((tx.id.to_string(), contract_id.to_string()))
+    }
 
     fn create_tags(
         &self,
         contract_id: &str,
         unix_timestamp: &str,
         action: &str,
-        source: bool,
+        contract_type: ContractType,
     ) -> Vec<Tag<Base64>> {
-        let app = get_app_name(source);
+        let app = get_app_name(contract_type);
         vec![
             Tag::<Base64>::from_utf8_strs("App-Name", &app).unwrap(),
             Tag::<Base64>::from_utf8_strs("App-Version", "0.0.1").unwrap(),
@@ -119,7 +158,12 @@ impl Ar {
 
         let action =
             r#"{"action":"init_state", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
-        let tags = self.create_tags(&contract_id, &unix_timestamp, action, false);
+        let tags = self.create_tags(
+            &contract_id,
+            &unix_timestamp,
+            action,
+            ContractType::Interaction,
+        );
 
         let mut tx = self
             .client
@@ -127,7 +171,7 @@ impl Ar {
                 initial_state.as_bytes().to_vec(),
                 Some(tags),
                 None,
-                // (60000000, 0) minimum price term for it to go through
+                // (60000000, 60000000) minimum price term for it to go through
                 (60000000, 60000000),
                 false,
             )
@@ -153,7 +197,12 @@ impl Ar {
 
         // todo, currently we don't send out multiple votes, so no arguments of last votes
         let action = r#"{"action":"vote", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
-        let tags = self.create_tags(&contract_id, &unix_timestamp, action, false);
+        let tags = self.create_tags(
+            &contract_id,
+            &unix_timestamp,
+            action,
+            ContractType::Interaction,
+        );
 
         let mut tx = self
             .client
@@ -161,7 +210,7 @@ impl Ar {
                 vote_data.as_bytes().to_vec(),
                 Some(tags),
                 None,
-                // (60000000, 0) minimum price term for it to go through
+                // (60000000, 60000000) minimum price term for it to go through
                 (60000000, 60000000),
                 false,
             )
@@ -182,18 +231,29 @@ impl Ar {
         &self,
         contract_id: String,
     ) -> Result<(Vec<Value>, Vec<Value>), Error> {
-        let source = graphql_query(&contract_id, true).await.unwrap();
+        let source = graphql_query(&contract_id, ContractType::Source)
+            .await
+            .unwrap();
 
-        let interactions = graphql_query(&contract_id, false).await.unwrap();
+        let interactions = graphql_query(&contract_id, ContractType::Interaction)
+            .await
+            .unwrap();
 
         fs::write(
             "./.cache/transactions.json",
-            json!({"source": source, "interactions":interactions }).to_string(),
+            json!({"source": source, "interactions":interactions}).to_string(),
         )
         .await
         .unwrap();
 
         Ok((source, interactions))
+    }
+    pub async fn fetch_zk(&self, contract_id: String) -> Result<Vec<u8>, Error> {
+        let zk_snark = zk_query(&contract_id, ContractType::ZkSnark).await.unwrap();
+
+        fs::write("./.cache/zksnark.bin", &zk_snark).await.unwrap();
+
+        Ok(zk_snark)
     }
 
     pub async fn wait_till_mined(&self, tx_id: &str) -> Result<(), Error> {
@@ -263,16 +323,40 @@ fn get_record(value: &Value) -> Value {
     })
 }
 
-fn get_app_name(source: bool) -> String {
-    let mut app = "harpocrates-interactions";
-    if source {
-        app = "harpocrates-source";
-    }
+fn get_app_name(contract_type: ContractType) -> String {
+    let app = match contract_type {
+        ContractType::Source => "harpocrates-source",
+        ContractType::Interaction => "harpocrates-interactions",
+        ContractType::ZkSnark => "harpocrates-zksnark",
+    };
+
     app.to_string()
 }
 
-async fn graphql_query(contract_address: &str, source: bool) -> Result<Vec<Value>, Error> {
-    let app = get_app_name(source);
+async fn graphql_query(
+    contract_address: &str,
+    contract_type: ContractType,
+) -> Result<Vec<Value>, Error> {
+    let mut values = fetch(contract_address, contract_type).await.unwrap();
+
+    for v in values.iter_mut() {
+        let resp = reqwest::get(format!(
+            "https://arweave.net/{}/data.json",
+            v["id"].clone().as_str().unwrap()
+        ))
+        .await
+        .unwrap()
+        .json::<Value>()
+        .await
+        .unwrap();
+        v.as_object_mut().unwrap().insert("data".to_string(), resp);
+    }
+
+    Ok(values)
+}
+
+async fn fetch(contract_address: &str, contract_type: ContractType) -> Result<Vec<Value>, Error> {
+    let app = get_app_name(contract_type);
     let mut values: Vec<Value> = Vec::new();
     let resp = reqwest::Client::new()
         .post("https://arweave.net/graphql")
@@ -314,23 +398,24 @@ async fn graphql_query(contract_address: &str, source: bool) -> Result<Vec<Value
             .collect();
         println!("{:?}", values.len());
     }
-
-    for v in values.iter_mut() {
-        let resp = reqwest::get(format!(
-            "https://arweave.net/{}/data.json",
-            v["id"].clone().as_str().unwrap()
-        ))
-        .await
-        .unwrap()
-        .json::<Value>()
-        .await
-        .unwrap();
-        v.as_object_mut().unwrap().insert("data".to_string(), resp);
-    }
-
     Ok(values)
 }
 
+async fn zk_query(contract_address: &str, contract_type: ContractType) -> Result<Vec<u8>, Error> {
+    let values = fetch(contract_address, contract_type).await.unwrap();
+
+    let resp = reqwest::get(format!(
+        "https://arweave.net/{}/data.json",
+        values[0]["id"].clone().as_str().unwrap()
+    ))
+    .await
+    .unwrap()
+    .bytes()
+    .await
+    .unwrap();
+
+    return Ok(resp.to_vec());
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -341,6 +426,18 @@ mod tests {
         let res = ar
             .wait_till_mined("vPxIKj-kq7l1lXhVwJpNDIa1Xsz2lHR3TnpUDAHM4aQ")
             .await;
+        println!("{:?}", res);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn graphql_query_test() -> Result<(), Box<dyn std::error::Error>> {
+        let res = zk_query(
+            "28dygSSTZsbHVeOmEO69B0bS7aVzYWr2pFM1HCdosGg",
+            ContractType::ZkSnark,
+        )
+        .await
+        .unwrap();
         println!("{:?}", res);
         Ok(())
     }
