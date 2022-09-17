@@ -118,9 +118,9 @@ async fn deploy() -> Result<String, Box<dyn std::error::Error>> {
         "deployment.json".to_string(),
         json!({"arweave_id": tx_id, "contract_id": contract_id}).to_string(),
     )?;
-    
+
     println!("Deploy: Arweave Tx ID: {} ", tx_id);
-    
+
     // we wait till mined (main txn for now)
     let mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
     println!("{:?}", mined_res);
@@ -424,8 +424,6 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 init_zk(&contract_id).boxed(),
                 // init the state
                 init_state(&contract_id).boxed(),
-                // fetch the zk info to populate our cache
-                fetch_zk(&contract_id).boxed(),
             ];
             let results = future::join_all(futures).await;
 
@@ -433,6 +431,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
             for r in results {
                 r.unwrap();
             }
+
+            // fetch the zk info to populate our cache
+            fetch_zk(&contract_id).await?;
             // vote on who we want
             vote(&contract_id, &1).await?;
             // fetch all the txn, the latest
