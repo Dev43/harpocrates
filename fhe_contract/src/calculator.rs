@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn it_works() -> Result<(), Error> {
-        let contract_json = std::fs::read_to_string("./compiled_contract/add_vote_params.json")
+        let contract_json = std::fs::read_to_string("./.cache/add_vote_params.json")
             .expect("Should have been able to read the file");
 
         let app: Application = serde_json::from_str(&contract_json).unwrap();

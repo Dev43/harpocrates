@@ -5,10 +5,7 @@ use sunscreen::{Compiler, FheProgramFn};
 pub fn compile_and_save_contract() -> Result<(), Box<dyn Error>> {
     let ser_app_json = compile().unwrap();
     // we output it to a target folder
-    let mut file = File::create(format!(
-        "./compiled_contract/{}_params.json",
-        add_vote.name()
-    ))?;
+    let mut file = File::create(format!("./.cache/{}_params.json", add_vote.name()))?;
     file.write_all(ser_app_json.as_bytes())?;
 
     // reserializes the app
