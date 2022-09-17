@@ -21,7 +21,7 @@ where
     Ok(final_result[0].clone())
 }
 
-pub fn get_initial_state(contract_json: &str, pk: PublicKey) -> Result<String, Error> {
+pub fn get_initial_state(contract_json: &str, pk: &PublicKey) -> Result<String, Error> {
     let app: Application = serde_json::from_str(&contract_json).unwrap();
 
     let runtime = Runtime::new(app.params())?;
@@ -47,7 +47,7 @@ pub fn get_initial_state(contract_json: &str, pk: PublicKey) -> Result<String, E
     Ok(ser_json)
 }
 
-pub fn decrypt(contract_json: &str, pk: PublicKey, sk: PrivateKey) -> Result<String, Error> {
+pub fn decrypt(contract_json: &str, pk: &PublicKey, sk: &PrivateKey) -> Result<String, Error> {
     let app: Application = serde_json::from_str(&contract_json).unwrap();
 
     let runtime = Runtime::new(app.params())?;
@@ -145,7 +145,7 @@ mod tests {
 
         let (counter_pk, _) = runtime.generate_keys()?;
 
-        let res = get_initial_state(&contract_json, counter_pk);
+        let res = get_initial_state(&contract_json, &counter_pk);
 
         Ok(())
     }

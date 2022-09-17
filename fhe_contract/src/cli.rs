@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
-use sunscreen::{Application, PublicKey, Runtime};
+use sunscreen::{Application, PrivateKey, PublicKey, Runtime};
 
-use crate::calculator::{decrypt, get_initial_state};
+use crate::calculator::get_initial_state;
 use crate::compiler::compile;
 use serde_json::{json, Value};
 use std::fs::File;
@@ -21,10 +21,14 @@ enum Commands {
     /// deploy
     CreateNewUser {},
     Deploy {},
-    FetchLatest {},
-    PublishAction {
+    InitState {
         #[clap(value_parser)]
-        action: String,
+        contract_id: String,
+    },
+    FetchLatest {},
+    Vote {
+        #[clap(value_parser)]
+        number: i8,
     },
     RunAll {},
 
@@ -73,58 +77,93 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(Commands::Deploy {}) => {
             let contract_json = compile().unwrap();
-            let app: Application = serde_json::from_str(&contract_json).unwrap();
 
-            let runtime = Runtime::new(app.params()).unwrap();
+            let (pk, _) = get_keys();
 
-            let pk_string = std::fs::read_to_string("./.cache/pk.json")
-                .expect("Should have been able to read the file");
+            // let res = decrypt(&contract_json, &pk, &sk);
 
-            let pk: PublicKey = serde_json::from_str(&pk_string).unwrap();
+            // println!("{:?}", res);
 
-            let raw_keys = std::fs::read_to_string("./.cache/sk.json")
-                .expect("Should have been able to read the file");
-            let keys: Value = serde_json::from_str(&raw_keys).unwrap();
-            let secret_k: Vec<u8> = serde_json::from_value(keys["sk"].clone()).unwrap();
-            println!("{:?}", secret_k);
+            let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
 
-            let sk = runtime.bytes_to_private_key(&secret_k).unwrap();
+            let res = ar.deploy_contract(&contract_json).await?;
+            let contract_id = res.1;
+            let tx_id = res.0;
 
-            println!("{:?}", sk);
+            write_to_file(
+                "deployment.json".to_string(),
+                json!({"arweave_id": tx_id, "contract_id": contract_id}).to_string(),
+            )?;
 
-            let res = decrypt(&contract_json, pk, sk);
+            // we wait till mined (main txn for now)
+            let mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
+            println!("{:?}", mined_res);
 
-            // let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
+            println!("Deploy: Arweave Tx ID: {} ", tx_id);
+            println!("Deploy: Contract inner ID: {} ", contract_id);
 
-            // let res = ar.deploy_contract(&contract_json).await?;
+            // get the init state, all vectors of 0
+            let init_state = get_initial_state(&contract_json, &pk).unwrap();
 
-            // println!("{} {}", res.0, res.1);
-            // write_to_file(
-            //     "deployment.json".to_string(),
-            //     json!({"arweave_id": res.0, "contract_id": res.1}).to_string(),
-            // )?;
+            let r = ar.initialize_state(&contract_id, init_state).await.unwrap();
+            println!("{:?}", r);
 
-            // // get the init state, all vectors of 0
-            // get_initial_state(&contract_json, pk);
+            // we wait till mined (main txn for now)
+            let mined_res = ar.wait_till_mined(&r.0).await.unwrap();
+            println!("{:?}", mined_res);
+        }
+        Some(Commands::InitState { contract_id: cid }) => {
+            let contract_json = compile().unwrap();
 
-            // ar.init_state(contract_id, initial_state)
+            let (pk, _) = get_keys();
+
+            let contract_id = cid.clone();
+
+            // let res = decrypt(&contract_json, &pk, &sk);
+
+            // println!("{:?}", res);
+
+            let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
+
+            // get the init state, all vectors of 0
+            let init_state = get_initial_state(&contract_json, &pk).unwrap();
+
+            let r = ar.initialize_state(&contract_id, init_state).await.unwrap();
+            println!("{:?}", r);
+
+            // we wait till mined (main txn for now)
+            let mined_res = ar.wait_till_mined(&r.0).await.unwrap();
+            println!("{:?}", mined_res);
+
+            println!(
+                "Init: State for Contract ID {} has been initialized ",
+                contract_id
+            );
         }
         Some(Commands::FetchLatest {}) => {
             let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
-            let res = ar
-                .fetch_latest_state("qSBgFlQaZhI0Uv785pRQMiJkAMVDkdmZvSH4PoMXPZM".to_string())
+            ar.fetch_latest_state("28dygSSTZsbHVeOmEO69B0bS7aVzYWr2pFM1HCdosGg".to_string())
                 .await
                 .unwrap();
-
-            println!("{:?}", res);
         }
-        Some(Commands::PublishAction { action: e }) => {
+        Some(Commands::Vote { number: e }) => {
+            if e > &9 {
+                println!("Invalid choice, only from 1-9");
+                return Ok(());
+            }
+
+            // we need at least 1 other person to vote with us to somewhat obfuscate our vote. Hence, we will store the vote in the cache if
+            // first to vote, otherwise we add up a vote with another person and publish it. (we can also do a peer to peer check to ensure it will vote as we want it to).
+            // both parties will need to create a zkproof saying this was their vote (they participated in it).
+            // this is mitigated if we use MKFHE - where everyone can encrypt their vote, publish it and have it all counted + decrypted at the end.
+
             println!("{}", e);
         }
         Some(Commands::RunAll {}) => {}
         None => {}
     }
 
+    // show a progress bar as we move along!
     // let pb = indicatif::ProgressBar::new(100);
     // for i in 0..100 {
     //     pb.inc(1);
@@ -132,4 +171,25 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // pb.finish_with_message("done");
 
     Ok(())
+}
+
+fn get_keys() -> (PublicKey, PrivateKey) {
+    let contract_json = compile().unwrap();
+    let app: Application = serde_json::from_str(&contract_json).unwrap();
+
+    let runtime = Runtime::new(app.params()).unwrap();
+
+    let pk_string = std::fs::read_to_string("./.cache/pk.json")
+        .expect("Should have been able to read the file");
+
+    let pk: PublicKey = serde_json::from_str(&pk_string).unwrap();
+
+    let raw_keys = std::fs::read_to_string("./.cache/sk.json")
+        .expect("Should have been able to read the file");
+    let keys: Value = serde_json::from_str(&raw_keys).unwrap();
+    let secret_k: Vec<u8> = serde_json::from_value(keys["sk"].clone()).unwrap();
+
+    let sk = runtime.bytes_to_private_key(&secret_k).unwrap();
+
+    (pk, sk)
 }

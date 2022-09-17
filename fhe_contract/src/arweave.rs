@@ -75,11 +75,10 @@ impl Ar {
         let res = self.client.post_transaction(&tx).await?;
         println!("{:?}", res);
 
-        println!("Arweave Tx ID: {} ", tx.id);
-        println!("Contract inner ID: {} ", contract_id);
-
         Ok((tx.id.to_string(), contract_id))
     }
+
+    // fn create_and_send_tx() {}
 
     fn create_tags(
         &self,
@@ -111,14 +110,15 @@ impl Ar {
         ]
     }
 
-    pub async fn init_state(
+    pub async fn initialize_state(
         &self,
-        contract_id: String,
+        contract_id: &str,
         initial_state: String,
     ) -> Result<(String, String), Box<dyn std::error::Error>> {
         let unix_timestamp = get_unix_timestamp();
 
-        let action = r#"{"action":"deploy", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
+        let action =
+            r#"{"action":"init_state", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
         let tags = self.create_tags(&contract_id, &unix_timestamp, action, false);
 
         let mut tx = self
@@ -128,7 +128,7 @@ impl Ar {
                 Some(tags),
                 None,
                 // (60000000, 0) minimum price term for it to go through
-                (60000000, 0),
+                (60000000, 60000000),
                 false,
             )
             .await
@@ -136,16 +136,12 @@ impl Ar {
 
         tx = self.client.sign_transaction(tx).unwrap();
 
+        println!("Init: Arweave Tx ID: {} ", tx.id);
+
         let res = self.client.post_transaction(&tx).await?;
         println!("{:?}", res);
 
-        println!("Arweave Tx ID: {} ", tx.id);
-        println!(
-            "State for Contract ID {} has been initialized ",
-            contract_id
-        );
-
-        Ok((tx.id.to_string(), contract_id))
+        Ok((tx.id.to_string(), contract_id.to_string()))
     }
 
     pub async fn fetch_latest_state(
@@ -156,10 +152,17 @@ impl Ar {
 
         let interactions = graphql_query(&contract_id, false).await.unwrap();
 
+        fs::write(
+            "./.cache/transactions.json",
+            json!({"source": source, "interactions":interactions }).to_string(),
+        )
+        .await
+        .unwrap();
+
         Ok((source, interactions))
     }
 
-    pub async fn wait_till_mined(&self, tx_id: String) -> Result<(), Error> {
+    pub async fn wait_till_mined(&self, tx_id: &str) -> Result<(), Error> {
         let id = Base64::from_str(&tx_id).unwrap();
 
         let mut status = self.client.get_status(&id).await.unwrap();
@@ -247,8 +250,6 @@ async fn graphql_query(contract_address: &str, source: bool) -> Result<Vec<Value
         .await
         .unwrap();
 
-    println!("{:#?}", resp);
-
     let mut transactions: Vec<Value> = resp.as_object().unwrap()["data"]["transactions"]["edges"]
         .as_array()
         .unwrap()
@@ -279,11 +280,34 @@ async fn graphql_query(contract_address: &str, source: bool) -> Result<Vec<Value
             .collect();
         println!("{:?}", values.len());
     }
-    fs::write("data.json", serde_json::to_string(&values).unwrap())
+
+    for v in values.iter_mut() {
+        let resp = reqwest::get(format!(
+            "https://arweave.net/{}/data.json",
+            v["id"].clone().as_str().unwrap()
+        ))
+        .await
+        .unwrap()
+        .json::<Value>()
         .await
         .unwrap();
+        v.as_object_mut().unwrap().insert("data".to_string(), resp);
+    }
 
     Ok(values)
+}
+
+pub fn merge(v: &Value, fields: &serde_json::Map<String, Value>) -> Value {
+    match v {
+        Value::Object(m) => {
+            let mut m = m.clone();
+            for (k, v) in fields {
+                m.insert(k.clone(), v.clone());
+            }
+            Value::Object(m)
+        }
+        v => v.clone(),
+    }
 }
 
 #[cfg(test)]
@@ -294,7 +318,7 @@ mod tests {
     async fn it_waits_till_mined() -> Result<(), Box<dyn std::error::Error>> {
         let ar = Ar::new("./arweave-keyfile.json".to_string()).await;
         let res = ar
-            .wait_till_mined("vPxIKj-kq7l1lXhVwJpNDIa1Xsz2lHR3TnpUDAHM4aQ".to_string())
+            .wait_till_mined("vPxIKj-kq7l1lXhVwJpNDIa1Xsz2lHR3TnpUDAHM4aQ")
             .await;
         println!("{:?}", res);
         Ok(())
