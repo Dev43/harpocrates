@@ -118,12 +118,13 @@ async fn deploy() -> Result<String, Box<dyn std::error::Error>> {
         "deployment.json".to_string(),
         json!({"arweave_id": tx_id, "contract_id": contract_id}).to_string(),
     )?;
-
+    
+    println!("Deploy: Arweave Tx ID: {} ", tx_id);
+    
     // we wait till mined (main txn for now)
     let mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
     println!("{:?}", mined_res);
 
-    println!("Deploy: Arweave Tx ID: {} ", tx_id);
     println!("Deploy: Contract inner ID: {} ", contract_id);
 
     Ok(contract_id)
