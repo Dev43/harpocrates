@@ -1,0 +1,1 @@
+circom vote_is_valid.circom --r1cs --wasm --sym --c --inspect

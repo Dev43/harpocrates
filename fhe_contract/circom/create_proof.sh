@@ -1,0 +1,1 @@
+snarkjs groth16 prove vote_is_valid_0001.zkey witness.wtns proof.json public.json

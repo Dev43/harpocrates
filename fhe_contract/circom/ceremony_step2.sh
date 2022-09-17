@@ -1,0 +1,1 @@
+snarkjs powersoftau prepare phase2 pot12_0001.ptau pot12_final.ptau -v && snarkjs groth16 setup vote_is_valid.r1cs pot12_final.ptau vote_is_valid_0000.zkey && snarkjs zkey contribute vote_is_valid_0000.zkey vote_is_valid_0001.zkey --name="1st Contributor Name" -v && snarkjs zkey export verificationkey vote_is_valid_0001.zkey verification_key.json

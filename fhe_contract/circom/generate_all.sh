@@ -1,0 +1,1 @@
+./compile.sh && ./generate_witness_js.sh && ./ceremony_step1.sh && ./ceremony_step2.sh && ./create_proof.sh && ./create_sol_verifier.sh && ./verify_proof.sh 
