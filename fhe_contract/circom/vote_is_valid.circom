@@ -29,13 +29,23 @@ template vote_is_valid() {
    is_more_than.out ==> o1;
    log("The result is ", o1);
 
+   // ensure the sum is exactly 1
    component f_equal = ForceEqualIfEnabled();
    f_equal.enabled <== 1;
-   f_equal.in[0] <== o*o1;
+   f_equal.in[0] <== sum;
    f_equal.in[1] <== 1;
    signal o2;
    is_more_than.out ==> o2;
    log("The result to forced equal is ", o2);
+
+   // lessThan and greaterThan multiply to 1 (both valid)
+   component f_equal2 = ForceEqualIfEnabled();
+   f_equal2.enabled <== 1;
+   f_equal2.in[0] <== o*o1;
+   f_equal2.in[1] <== 1;
+   signal o3;
+   is_more_than.out ==> o3;
+   log("The result to forced equal is for o*o1", o3);
 
 
    // Constraints.  

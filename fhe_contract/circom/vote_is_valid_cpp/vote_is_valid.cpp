@@ -37,9 +37,9 @@ uint get_main_input_signal_start() {return 2;}
 
 uint get_main_input_signal_no() {return 10;}
 
-uint get_total_signal_no() {return 57;}
+uint get_total_signal_no() {return 64;}
 
-uint get_number_of_components() {return 9;}
+uint get_number_of_components() {return 11;}
 
 uint get_size_of_input_hashmap() {return 256;}
 
@@ -477,7 +477,7 @@ ctx->componentMemory[coffset].signalStart = soffset;
 ctx->componentMemory[coffset].inputCounter = 10;
 ctx->componentMemory[coffset].componentName = componentName;
 ctx->componentMemory[coffset].idFather = componentFather;
-ctx->componentMemory[coffset].subcomponents = new uint[3];
+ctx->componentMemory[coffset].subcomponents = new uint[4];
 }
 
 void vote_is_valid_6_run(uint ctx_index,Circom_CalcWit* ctx){
@@ -496,8 +496,8 @@ FrElement lvar[2];
 uint sub_component_aux;
 {
 uint aux_create = 0;
-int aux_cmp_num = 2+ctx_index+1;
-uint csoffset = mySignalStart+20;
+int aux_cmp_num = 4+ctx_index+1;
+uint csoffset = mySignalStart+27;
 for (uint i = 0; i < 1; i++) {
 std::string new_cmp_name = "is_less_than";
 LessEqThan_2_create(csoffset,aux_cmp_num,ctx,new_cmp_name,myId);
@@ -508,8 +508,8 @@ aux_cmp_num += 3;
 }
 {
 uint aux_create = 1;
-int aux_cmp_num = 5+ctx_index+1;
-uint csoffset = mySignalStart+38;
+int aux_cmp_num = 7+ctx_index+1;
+uint csoffset = mySignalStart+45;
 for (uint i = 0; i < 1; i++) {
 std::string new_cmp_name = "is_more_than";
 GreaterEqThan_3_create(csoffset,aux_cmp_num,ctx,new_cmp_name,myId);
@@ -521,9 +521,21 @@ aux_cmp_num += 3;
 {
 uint aux_create = 2;
 int aux_cmp_num = 0+ctx_index+1;
-uint csoffset = mySignalStart+14;
+uint csoffset = mySignalStart+15;
 for (uint i = 0; i < 1; i++) {
 std::string new_cmp_name = "f_equal";
+ForceEqualIfEnabled_5_create(csoffset,aux_cmp_num,ctx,new_cmp_name,myId);
+mySubcomponents[aux_create+i] = aux_cmp_num;
+csoffset += 6 ;
+aux_cmp_num += 2;
+}
+}
+{
+uint aux_create = 3;
+int aux_cmp_num = 2+ctx_index+1;
+uint csoffset = mySignalStart+21;
+for (uint i = 0; i < 1; i++) {
+std::string new_cmp_name = "f_equal2";
 ForceEqualIfEnabled_5_create(csoffset,aux_cmp_num,ctx,new_cmp_name,myId);
 mySubcomponents[aux_create+i] = aux_cmp_num;
 csoffset += 6 ;
@@ -662,9 +674,8 @@ uint cmp_index_ref = 2;
 {
 PFrElement aux_dest = &ctx->signalValues[ctx->componentMemory[mySubcomponents[cmp_index_ref]].signalStart + 1];
 // load src
-Fr_mul(&expaux[0],&signalValues[mySignalStart + 11],&signalValues[mySignalStart + 12]); // line circom 34
 // end load src
-Fr_copy(aux_dest,&expaux[0]);
+Fr_copy(aux_dest,&lvar[0]);
 }
 // no need to run sub component
 assert(--ctx->componentMemory[mySubcomponents[cmp_index_ref]].inputCounter);
@@ -702,9 +713,64 @@ delete [] temp;
 printf("\n");
 }
 {
+uint cmp_index_ref = 3;
+{
+PFrElement aux_dest = &ctx->signalValues[ctx->componentMemory[mySubcomponents[cmp_index_ref]].signalStart + 0];
+// load src
+// end load src
+Fr_copy(aux_dest,&circuitConstants[2]);
+}
+// no need to run sub component
+assert(--ctx->componentMemory[mySubcomponents[cmp_index_ref]].inputCounter);
+}
+{
+uint cmp_index_ref = 3;
+{
+PFrElement aux_dest = &ctx->signalValues[ctx->componentMemory[mySubcomponents[cmp_index_ref]].signalStart + 1];
+// load src
+Fr_mul(&expaux[0],&signalValues[mySignalStart + 11],&signalValues[mySignalStart + 12]); // line circom 44
+// end load src
+Fr_copy(aux_dest,&expaux[0]);
+}
+// no need to run sub component
+assert(--ctx->componentMemory[mySubcomponents[cmp_index_ref]].inputCounter);
+}
+{
+uint cmp_index_ref = 3;
+{
+PFrElement aux_dest = &ctx->signalValues[ctx->componentMemory[mySubcomponents[cmp_index_ref]].signalStart + 2];
+// load src
+// end load src
+Fr_copy(aux_dest,&circuitConstants[2]);
+}
+// need to run sub component
+assert(!(--ctx->componentMemory[mySubcomponents[cmp_index_ref]].inputCounter));
+ForceEqualIfEnabled_5_run(mySubcomponents[cmp_index_ref],ctx);
+}
+{
+PFrElement aux_dest = &signalValues[mySignalStart + 14];
+// load src
+// end load src
+Fr_copy(aux_dest,&ctx->signalValues[ctx->componentMemory[mySubcomponents[1]].signalStart + 0]);
+}
+{
+printf("The result to forced equal is for o*o1");
+}
+{
+printf(" ");
+}
+{
+char* temp = Fr_element2str(&signalValues[mySignalStart + 14]);
+printf("%s",temp);
+delete [] temp;
+}
+{
+printf("\n");
+}
+{
 PFrElement aux_dest = &signalValues[mySignalStart + 0];
 // load src
-Fr_mul(&expaux[0],&signalValues[mySignalStart + 11],&signalValues[mySignalStart + 12]); // line circom 42
+Fr_mul(&expaux[0],&signalValues[mySignalStart + 11],&signalValues[mySignalStart + 12]); // line circom 52
 // end load src
 Fr_copy(aux_dest,&expaux[0]);
 }
