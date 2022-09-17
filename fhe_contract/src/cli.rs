@@ -5,9 +5,11 @@ use sunscreen::{Application, Ciphertext, PrivateKey, PublicKey, Runtime};
 
 use crate::calculator::{calculate, decrypt, get_initial_state};
 use crate::compiler::compile;
+use crate::snarkjs::{generate_proof, generate_witness, verify_snark_proof};
 use serde_json::{json, Value};
 use std::fs::File;
 use std::io::prelude::*;
+use std::os::unix::prelude::PermissionsExt;
 
 /// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser, Debug)]
@@ -65,6 +67,18 @@ struct ZkInfo {
     pub verification_key: Vec<u8>,
     pub vote_is_valid_0001_zkey: Vec<u8>,
     pub generate_witness: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ZKProof {
+    pub proof: String,
+    pub public: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct VoteData {
+    pub data: String,
+    pub zkp: ZKProof,
 }
 
 fn write_to_file(name: String, data: String) -> Result<(), Box<dyn std::error::Error>> {
@@ -143,11 +157,6 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
             let zk_data = bincode::serialize(&zk).unwrap();
 
-            // let all: ZkInfo = bincode::deserialize(&zk_data).unwrap();
-
-            // let mut file = File::create(format!("./.cache/{}", "genny".to_string()))?;
-            // file.write_all(&all.generate_witness)?;
-
             let res = ar.deploy_zksnark(&contract_id, zk_data).await?;
             let tx_id = res.0;
 
@@ -201,7 +210,23 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
             let contract_id = cid.clone();
 
             let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
-            ar.fetch_zk(contract_id.to_string()).await.unwrap();
+            let zk_data = ar.fetch_zk(contract_id.to_string()).await.unwrap();
+
+            let all: ZkInfo = bincode::deserialize(&zk_data).unwrap();
+
+            let mut file = File::create(format!("./.cache/{}", "generate_witness".to_string()))?;
+            let metadata = file.metadata()?;
+            let mut permissions = metadata.permissions();
+            permissions.set_mode(0o777);
+            file.write_all(&all.generate_witness)?;
+            let mut file = File::create(format!(
+                "./.cache/{}",
+                "vote_is_valid_0001.zkey".to_string()
+            ))?;
+            file.write_all(&all.vote_is_valid_0001_zkey)?;
+            let mut file =
+                File::create(format!("./.cache/{}", "verification_key.json".to_string()))?;
+            file.write_all(&all.verification_key)?;
 
             println!("Successfully fetched Zk information, it is located at .cache/zksnark.bin");
         }
@@ -228,6 +253,8 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
             // we go through all transactions and run them one by one through the compiled contract
             for intx in intxs {
+                // we verify the zkp
+
                 // first deserialize the inputs
                 // need to do this because of some weird bug with serde
 
@@ -238,7 +265,51 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 happens when serde_json::from_value(intx["data"].clone()).unwrap();
                 */
 
-                let t_s = serde_json::to_string(&intx["data"]).unwrap();
+                // this bit does the calculations
+                #[allow(unused_assignments)]
+                let mut t_s = String::from("");
+                if !intx["data"].is_array() && intx["data"]["data"].is_string() {
+                    t_s = intx["data"]["data"].as_str().unwrap().to_string();
+                    let zkp = intx["data"]["zkp"].as_object().unwrap();
+
+                    let proof: String = serde_json::from_value(zkp["proof"].clone()).unwrap();
+                    let public: String = serde_json::from_value(zkp["public"].clone()).unwrap();
+
+                    write_to_file("proof_to_check.json".to_string(), proof)?;
+                    write_to_file("public_input_to_check.json".to_string(), public)?;
+
+                    println!(
+                        "Verifying ZKSnark for {}",
+                        intx["id"].clone().as_str().unwrap()
+                    );
+                    match verify_snark_proof(
+                        "./.cache/public_input_to_check.json",
+                        "./.cache/proof_to_check.json",
+                    ) {
+                        Ok(_) => {}
+                        Err(_) => {
+                            // if the ZKsnark is not valid, we skip this txn
+
+                            println!(">>>>>>>>>>>>> Warning <<<<<<<<<<<<<");
+                            println!(">>>>>>>>>>>>> Warning <<<<<<<<<<<<<");
+                            println!(">>>>>>>>>>>>> Warning <<<<<<<<<<<<<");
+                            println!(
+                                ">>>>>>>>>>>>> ZKSnark not valid, skipping this txn <<<<<<<<<<<<<"
+                            );
+                            println!(">>>>>>>>>>>>> Warning <<<<<<<<<<<<<");
+                            println!(">>>>>>>>>>>>> Warning <<<<<<<<<<<<<");
+                            println!(">>>>>>>>>>>>> Warning <<<<<<<<<<<<<");
+                            continue;
+                        }
+                    };
+
+                    println!("ZKProof verified {}", intx["id"].clone().as_str().unwrap());
+
+                    // we take out the proof.json and the input.json, save it and run the verify proof on them
+                } else {
+                    t_s = serde_json::to_string(&intx["data"]).unwrap();
+                }
+
                 let input: Ciphertext = serde_json::from_str(&t_s).unwrap();
 
                 let args = vec![curr_calc, input.clone()];
@@ -281,29 +352,49 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
             // both parties will need to create a zkproof saying this was their vote (they participated in it).
             // this is mitigated if we use MKFHE - where everyone can encrypt their vote, publish it and have it all counted + decrypted at the end.
 
-            // it will create a vote and send it to arweave
-            let mut vote = [
-                Signed::from(0),
-                Signed::from(0),
-                Signed::from(0),
-                Signed::from(0),
-                Signed::from(0),
-                Signed::from(0),
-                Signed::from(0),
-                Signed::from(0),
-                Signed::from(0),
-                Signed::from(0),
-            ];
+            // this is where MKFHE would come in, some schemes (bfv etc show research) can show a validity proof of the encryption (as in, I can show you my vote is valid)
+            let mut og_vote = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            og_vote[*index] = 1;
 
-            vote[*index] = Signed::from(1);
+            // let's create a proof that our vote is valid
+
+            // we create a file called input.json that will be the input to our circuit (our vote)
+            write_to_file(
+                "input.json".to_string(),
+                json!({ "vote": og_vote }).to_string(),
+            )?;
+
+            // we now create a witness
+            generate_witness()?;
+
+            // we now generate the proof
+            generate_proof()?;
+
+            let proof_string = std::fs::read_to_string("./.cache/proof.json")?;
+
+            let public_string = std::fs::read_to_string("./.cache/public.json")?;
+
+            let zkp = ZKProof {
+                proof: proof_string,
+                public: public_string,
+            };
+
+            let vote = og_vote.map(|x| Signed::from(x));
 
             // we encrypt it
-
             let vote_enc = runtime.encrypt(vote, &pk).unwrap();
 
-            let vote_data = serde_json::to_string(&vote_enc).unwrap();
+            let v_d = serde_json::to_string(&vote_enc).unwrap();
+
+            let vote_data = VoteData {
+                data: v_d,
+                zkp: zkp,
+            };
+
+            let vote_data_string = serde_json::to_string(&vote_data).unwrap();
+
             // wait for it to get mined
-            let res = ar.vote(&contract_id, vote_data).await.unwrap();
+            let res = ar.vote(&contract_id, vote_data_string).await.unwrap();
 
             // we wait till mined (main txn for now)
             let mined_res = ar.wait_till_mined(&res.0).await.unwrap();
