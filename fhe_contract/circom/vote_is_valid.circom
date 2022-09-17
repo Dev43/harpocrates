@@ -29,6 +29,14 @@ template vote_is_valid() {
    is_more_than.out ==> o1;
    log("The result is ", o1);
 
+   component f_equal = ForceEqualIfEnabled();
+   f_equal.enabled <== 1;
+   f_equal.in[0] <== o*o1;
+   f_equal.in[1] <== 1;
+   signal o2;
+   is_more_than.out ==> o2;
+   log("The result to forced equal is ", o2);
+
 
    // Constraints.  
    c <== o * o1;  
