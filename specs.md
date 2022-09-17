@@ -6,11 +6,11 @@
 
 For the tags, we need this information to be searchable. So the first tag
 
-The contract ID is the hash of the contract data x unix_timestamp.
+The contract ID is the hash of the contract data x unix_timestamp (not the best but will do)
 
 ```json
 {
-  "App-Name": "harpocrates",
+  "App-Name": "harpocrates", // app name can either be harpocrates-source for source code, or harpocrates-interactions for interactions
   "App-Version": "0.0.1",
   "Contract": "0x...",
   "Content-Type": "application/json",
