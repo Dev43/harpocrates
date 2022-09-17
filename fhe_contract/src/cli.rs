@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
-use sunscreen::{Application, PrivateKey, PublicKey, Runtime};
+use sunscreen::{Application, Ciphertext, PrivateKey, PublicKey, Runtime};
 
-use crate::calculator::get_initial_state;
+use crate::calculator::{calculate, decrypt, get_initial_state};
 use crate::compiler::compile;
 use serde_json::{json, Value};
 use std::fs::File;
@@ -26,6 +26,7 @@ enum Commands {
         contract_id: String,
     },
     FetchLatest {},
+    ComputeLatest {},
     Vote {
         #[clap(value_parser)]
         number: i8,
@@ -44,6 +45,12 @@ enum Commands {
 struct Keys {
     pub pk: String,
     pub sk: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Transactions {
+    pub interactions: Vec<Value>,
+    pub source: Vec<Value>,
 }
 
 fn write_to_file(name: String, data: String) -> Result<(), Box<dyn std::error::Error>> {
@@ -119,10 +126,6 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
             let contract_id = cid.clone();
 
-            // let res = decrypt(&contract_json, &pk, &sk);
-
-            // println!("{:?}", res);
-
             let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
 
             // get the init state, all vectors of 0
@@ -145,6 +148,51 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
             ar.fetch_latest_state("28dygSSTZsbHVeOmEO69B0bS7aVzYWr2pFM1HCdosGg".to_string())
                 .await
                 .unwrap();
+        }
+        Some(Commands::ComputeLatest {}) => {
+            // we get the contract from source
+
+            let (pk, sk) = get_keys();
+
+            let txs_string = std::fs::read_to_string("./.cache/transactions.json")
+                .expect("Should have been able to read the file");
+
+            let txns: Transactions = serde_json::from_str(&txs_string).unwrap();
+
+            let source = txns.source[0].clone();
+
+            let app: Application = serde_json::from_value(source["data"].clone()).unwrap();
+
+            let intxs = txns.interactions;
+
+            // we get the init state first
+            let init = &intxs[0];
+            let t_s = serde_json::to_string(&init["data"]).unwrap();
+            let mut curr_calc: Ciphertext = serde_json::from_str(&t_s).unwrap();
+
+            // we go through all transactions and run them one by one through the compiled contract
+            for intx in intxs {
+                // first deserialize the inputs
+                // need to do this because of some weird bug with serde
+
+                /*
+                thread 'main' panicked at 'called `Result::unwrap()` on an
+                `Err` value: Error("invalid type: string \"params\", expected a borrowed string", line: 0, column: 0)', /
+
+                happens when serde_json::from_value(intx["data"].clone()).unwrap();
+                */
+
+                let t_s = serde_json::to_string(&intx["data"]).unwrap();
+                let input: Ciphertext = serde_json::from_str(&t_s).unwrap();
+
+                let args = vec![curr_calc, input.clone()];
+                curr_calc = calculate(&app, &pk, args).unwrap();
+            }
+
+            let decrypted = decrypt(&app, curr_calc, &sk).unwrap();
+
+            // then we decrypt the output calculation
+            println!("Compute Latest: current poll is {:?}", decrypted);
         }
         Some(Commands::Vote { number: e }) => {
             if e > &9 {

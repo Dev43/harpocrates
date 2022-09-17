@@ -5,15 +5,13 @@ use sunscreen::{
 };
 // todo add the inputs
 pub fn calculate<I>(
-    contract_json: String,
-    pk: PublicKey,
+    app: &Application,
+    pk: &PublicKey,
     arguments: Vec<I>,
 ) -> Result<Ciphertext, Error>
 where
     I: Into<FheProgramInput>,
 {
-    let app: Application = serde_json::from_str(&contract_json).unwrap();
-
     let runtime = Runtime::new(app.params())?;
 
     let final_result = runtime.run(app.get_program(add_vote).unwrap(), arguments, &pk)?;
@@ -47,34 +45,15 @@ pub fn get_initial_state(contract_json: &str, pk: &PublicKey) -> Result<String, 
     Ok(ser_json)
 }
 
-pub fn decrypt(contract_json: &str, pk: &PublicKey, sk: &PrivateKey) -> Result<String, Error> {
-    let app: Application = serde_json::from_str(&contract_json).unwrap();
-
+pub fn decrypt(
+    app: &Application,
+    to_decrypt: Ciphertext,
+    sk: &PrivateKey,
+) -> Result<[Signed; 10], Error> {
     let runtime = Runtime::new(app.params())?;
 
-    let init_state = runtime.encrypt(
-        [
-            Signed::from(0),
-            Signed::from(0),
-            Signed::from(0),
-            Signed::from(0),
-            Signed::from(0),
-            Signed::from(0),
-            Signed::from(0),
-            Signed::from(0),
-            Signed::from(0),
-            Signed::from(0),
-        ],
-        &pk,
-    )?;
-
-    let ser_json = serde_json::to_string(&init_state).unwrap();
-
-    let c: [Signed; 10] = runtime.decrypt(&init_state, &sk)?;
-    // intermediate result
-    println!("{:?}", c);
-    // println!("{}", ser_json);
-    Ok(ser_json)
+    let c: [Signed; 10] = runtime.decrypt(&to_decrypt, &sk)?;
+    Ok(c)
 }
 
 #[cfg(test)]
@@ -125,7 +104,9 @@ mod tests {
             &counter_pk,
         )?;
 
-        let res = calculate(contract_json, counter_pk, vec![init_state, alice_vote])?;
+        let app: Application = serde_json::from_str(&contract_json).unwrap();
+
+        let res = calculate(&app, &counter_pk, vec![init_state, alice_vote])?;
 
         let final_tally: [Signed; 10] = runtime.decrypt(&res, &counter_sk)?;
         println!("{:?}", final_tally);
