@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
+use sunscreen::types::bfv::Signed;
 use sunscreen::{Application, Ciphertext, PrivateKey, PublicKey, Runtime};
 
 use crate::calculator::{calculate, decrypt, get_initial_state};
@@ -18,7 +19,6 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// deploy
     CreateNewUser {},
     Deploy {},
     InitState {
@@ -29,16 +29,12 @@ enum Commands {
     ComputeLatest {},
     Vote {
         #[clap(value_parser)]
-        number: i8,
+        contract_id: String,
+
+        #[clap(value_parser)]
+        number: usize,
     },
     RunAll {},
-
-    /// does testing things
-    Test {
-        /// lists test values
-        #[clap(short, long, action)]
-        list: bool,
-    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -63,13 +59,6 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::Test { list }) => {
-            if *list {
-                println!("Printing testing lists...");
-            } else {
-                println!("Not printing testing lists...");
-            }
-        }
         Some(Commands::CreateNewUser {}) => {
             let contract_json = compile().unwrap();
 
@@ -85,11 +74,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Deploy {}) => {
             let contract_json = compile().unwrap();
 
-            let (pk, _) = get_keys();
-
-            // let res = decrypt(&contract_json, &pk, &sk);
-
-            // println!("{:?}", res);
+            let (pk, _) = get_main_keys();
 
             let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
 
@@ -122,7 +107,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::InitState { contract_id: cid }) => {
             let contract_json = compile().unwrap();
 
-            let (pk, _) = get_keys();
+            let (pk, _) = get_main_keys();
 
             let contract_id = cid.clone();
 
@@ -152,7 +137,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::ComputeLatest {}) => {
             // we get the contract from source
 
-            let (pk, sk) = get_keys();
+            let (pk, sk) = get_main_keys();
 
             let txs_string = std::fs::read_to_string("./.cache/transactions.json")
                 .expect("Should have been able to read the file");
@@ -194,18 +179,66 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
             // then we decrypt the output calculation
             println!("Compute Latest: current poll is {:?}", decrypted);
         }
-        Some(Commands::Vote { number: e }) => {
-            if e > &9 {
-                println!("Invalid choice, only from 1-9");
+        Some(Commands::Vote {
+            contract_id: id,
+            number: index,
+        }) => {
+            if index > &9 && index < &0 {
+                println!("Invalid choice, only from 0-9");
                 return Ok(());
             }
+
+            let contract_id = id.clone();
+
+            let contract_json = compile().unwrap();
+
+            let app: Application = serde_json::from_str(&contract_json).unwrap();
+
+            let runtime = Runtime::new(app.params()).unwrap();
+
+            let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
+
+            // TODO CURRENTLY WE DONT HAVE IDENTIFICATION OF THE USER -- need to do this with ETH/walletconnect + signature
+            // println!("Creating brand new user");
+            // let (new_user_pk, new_user_sk) = runtime.generate_keys().unwrap();
+            // println!("Brand new user created");
+
+            let (pk, _) = get_main_keys();
 
             // we need at least 1 other person to vote with us to somewhat obfuscate our vote. Hence, we will store the vote in the cache if
             // first to vote, otherwise we add up a vote with another person and publish it. (we can also do a peer to peer check to ensure it will vote as we want it to).
             // both parties will need to create a zkproof saying this was their vote (they participated in it).
             // this is mitigated if we use MKFHE - where everyone can encrypt their vote, publish it and have it all counted + decrypted at the end.
 
-            println!("{}", e);
+            // it will create a vote and send it to arweave
+            let mut vote = [
+                Signed::from(0),
+                Signed::from(0),
+                Signed::from(0),
+                Signed::from(0),
+                Signed::from(0),
+                Signed::from(0),
+                Signed::from(0),
+                Signed::from(0),
+                Signed::from(0),
+                Signed::from(0),
+            ];
+
+            vote[*index] = Signed::from(1);
+
+            // we encrypt it
+
+            let vote_enc = runtime.encrypt(vote, &pk).unwrap();
+
+            let vote_data = serde_json::to_string(&vote_enc).unwrap();
+            // wait for it to get mined
+            let res = ar.vote(&contract_id, vote_data).await.unwrap();
+
+            // we wait till mined (main txn for now)
+            let mined_res = ar.wait_till_mined(&res.0).await.unwrap();
+            println!("{:?}", mined_res);
+
+            println!("Vote: Your vote has been mined for {} ", contract_id);
         }
         Some(Commands::RunAll {}) => {}
         None => {}
@@ -221,7 +254,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn get_keys() -> (PublicKey, PrivateKey) {
+fn get_main_keys() -> (PublicKey, PrivateKey) {
     let contract_json = compile().unwrap();
     let app: Application = serde_json::from_str(&contract_json).unwrap();
 

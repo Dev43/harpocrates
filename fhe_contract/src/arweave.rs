@@ -144,6 +144,40 @@ impl Ar {
         Ok((tx.id.to_string(), contract_id.to_string()))
     }
 
+    pub async fn vote(
+        &self,
+        contract_id: &str,
+        vote_data: String,
+    ) -> Result<(String, String), Box<dyn std::error::Error>> {
+        let unix_timestamp = get_unix_timestamp();
+
+        // todo, currently we don't send out multiple votes, so no arguments of last votes
+        let action = r#"{"action":"vote", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
+        let tags = self.create_tags(&contract_id, &unix_timestamp, action, false);
+
+        let mut tx = self
+            .client
+            .create_transaction(
+                vote_data.as_bytes().to_vec(),
+                Some(tags),
+                None,
+                // (60000000, 0) minimum price term for it to go through
+                (60000000, 60000000),
+                false,
+            )
+            .await
+            .unwrap();
+
+        tx = self.client.sign_transaction(tx).unwrap();
+
+        println!("Vote: Arweave Tx ID: {} ", tx.id);
+
+        let res = self.client.post_transaction(&tx).await?;
+        println!("{:?}", res);
+
+        Ok((tx.id.to_string(), contract_id.to_string()))
+    }
+
     pub async fn fetch_latest_state(
         &self,
         contract_id: String,
@@ -295,19 +329,6 @@ async fn graphql_query(contract_address: &str, source: bool) -> Result<Vec<Value
     }
 
     Ok(values)
-}
-
-pub fn merge(v: &Value, fields: &serde_json::Map<String, Value>) -> Value {
-    match v {
-        Value::Object(m) => {
-            let mut m = m.clone();
-            for (k, v) in fields {
-                m.insert(k.clone(), v.clone());
-            }
-            Value::Object(m)
-        }
-        v => v.clone(),
-    }
 }
 
 #[cfg(test)]
