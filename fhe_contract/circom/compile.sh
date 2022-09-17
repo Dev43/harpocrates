@@ -1,1 +1,1 @@
-circom ./circom/vote_is_valid.circom --r1cs --c --inspect
+ls && circom ./vote_is_valid.circom --r1cs --c --inspect
