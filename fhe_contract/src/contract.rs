@@ -67,7 +67,7 @@ mod tests {
             &counter_pk,
         )?;
 
-        let c: [Signed; 10] = runtime.decrypt(&first_result[0], &counter_sk)?;
+        // let c: [Signed; 10] = runtime.decrypt(&first_result[0], &counter_sk)?;
         // intermediate result
 
         // now bob votes

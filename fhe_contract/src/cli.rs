@@ -16,7 +16,7 @@ use std::io::prelude::*;
 use std::os::unix::prelude::PermissionsExt;
 /// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser, Debug)]
-#[clap(author="Dev43",name="harpocrates", version="0.0.1", about = Some("Tool to vote using FHE and ZKSnarks"), long_about = None)]
+#[clap(author="Dev43",name="harpocrates", version="0.0.1", about = Some("POC providing a Permanent Fully Homomorphic Encryption smart contract on Arweave."), long_about = None)]
 struct Cli {
     #[clap(subcommand)]
     command: Option<Commands>,
@@ -24,25 +24,33 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    #[clap(about = "creates the keys for a new user")]
     CreateNewUser {},
+    #[clap(about = "deploys the FHE contract to Arweave")]
     Deploy {},
+    #[clap(about = "deploys all the information needed for ZKsnark to arweave")]
     InitZkProof {
         #[clap(value_parser)]
         contract_id: String,
     },
+    #[clap(about = "initializes the state of our contract")]
     InitState {
         #[clap(value_parser)]
         contract_id: String,
     },
+    #[clap(about = "fetches the latest transactions and saves them in the cache")]
     FetchLatest {
         #[clap(value_parser)]
         contract_id: String,
     },
+    #[clap(about = "fetches the latest zk params and saves it in the cache")]
     FetchZk {
         #[clap(value_parser)]
         contract_id: String,
     },
+    #[clap(about = "computes the result of all the FHE transactions")]
     ComputeLatest {},
+    #[clap(about = "create and deploys a vote on the user's preferred proposition")]
     Vote {
         #[clap(value_parser)]
         contract_id: String,
@@ -50,6 +58,7 @@ enum Commands {
         #[clap(value_parser)]
         number: usize,
     },
+    #[clap(about = "runs all the interactions in the correct order, also is interactive")]
     RunAll {},
 }
 
@@ -428,8 +437,15 @@ async fn vote(id: &String, index: &usize) -> Result<(), Box<dyn std::error::Erro
 
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
-
+    println!();
+    println!();
+    println!();
+    println!();
     println!("{}", ascii::HARPOCRATES);
+    println!();
+    println!();
+    println!();
+    println!();
 
     let _ = match &cli.command {
         Some(Commands::CreateNewUser {}) => create_new_user(),
