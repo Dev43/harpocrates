@@ -16,7 +16,7 @@ use std::io::prelude::*;
 use std::os::unix::prelude::PermissionsExt;
 /// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author="Dev43",name="harpocrates", version="0.0.1", about = Some("Tool to vote using FHE and ZKSnarks"), long_about = None)]
 struct Cli {
     #[clap(subcommand)]
     command: Option<Commands>,
@@ -175,6 +175,8 @@ async fn init_state(cid: &String) -> Result<(), Box<dyn std::error::Error>> {
     let init_state = get_initial_state(&contract_json, &pk).unwrap();
 
     let r = ar.initialize_state(&contract_id, init_state).await.unwrap();
+
+    println!("Init: Arweave Tx ID: {} ", r.0);
 
     // we wait till mined (main txn for now)
     let _mined_res = ar.wait_till_mined(&r.0).await.unwrap();
@@ -558,7 +560,7 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Deploying contract... this will take some time.");
 
     // deploy contract to arweave
-    // let contract_id = deploy().await?;
+    let contract_id = deploy().await?;
 
     clear_screen();
 
@@ -576,7 +578,8 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "Deploying ZK Params... this will take some time. Again, you will need to sign a message"
     );
-    // init_zk(&contract_id).await?;
+    // init zk params
+    init_zk(&contract_id).await?;
 
     clear_screen();
 
@@ -595,14 +598,15 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!("Deploying initial state... this will take some time");
 
-    // init_state(&contract_id).await?;
+    // init state to the contract
+    init_state(&contract_id).await?;
 
     clear_screen();
 
     println!();
     println!();
     println!();
-    println!("Ok, now that we've deployed all of our needed things, we can start fetching them (as though we didn't create them!)");
+    println!("Ok, now that we've deployed all that is needed, we can start fetching them (as though we didn't create them!)");
     println!("We will fetch all of the ZK params that we deployed earlier, these will be necessary for us later on");
     println!();
     println!();
@@ -613,7 +617,7 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Fetching ZK state (kinda fast!)");
 
     // fetch the zk info to populate our cache
-    // fetch_zk(&contract_id).await?;
+    fetch_zk(&contract_id).await?;
 
     clear_screen();
 
@@ -657,7 +661,7 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("So to recap, we are sending an encrypted version of your vote and a ZKproof to prove that your vote should be valid ");
 
     // vote on who we want
-    // vote(&contract_id, &index).await?;
+    vote(&contract_id, &index).await?;
 
     clear_screen();
 
@@ -672,10 +676,14 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
 
     prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
     println!();
+    clear_screen();
+
     println!();
+    println!();
+    println!("Fetching all the transactions for this contract...");
 
     // fetch all the txn, the latest
-    // fetch_latest(&contract_id).await?;
+    fetch_latest(&contract_id).await?;
 
     clear_screen();
 
@@ -708,7 +716,7 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     clear_screen();
 
     // compute the current outcome
-    // compute_latest().await?;
+    compute_latest().await?;
 
     println!();
     println!();
@@ -717,6 +725,8 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
+
+    clear_screen();
 
     println!();
     println!();
@@ -750,7 +760,7 @@ fn prompt_for_any(prompt: &str) {
     }
 }
 
-fn prompt_for_int(prompt: &str, min: i64, max: i64, out_of_range_message: &str) -> i64 {
+fn prompt_for_int(prompt: &str, min: usize, max: usize, out_of_range_message: &str) -> usize {
     let int_val;
 
     // Blank the terminal
@@ -760,7 +770,7 @@ fn prompt_for_int(prompt: &str, min: i64, max: i64, out_of_range_message: &str) 
         let mut line = String::default();
         std::io::stdin().read_line(&mut line).unwrap();
 
-        match line.trim().parse::<i64>() {
+        match line.trim().parse::<usize>() {
             Ok(v) => {
                 if v > max || v < min {
                     println!("{}", out_of_range_message);
