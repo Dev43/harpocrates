@@ -4,6 +4,8 @@
 
 > Harpocrates (Ancient Greek: Ἁρποκράτης) was the god of silence, secrets and confidentiality in the Hellenistic religion developed in Ptolemaic Alexandria (and also an embodiment of hope, according to Plutarch).
 
+Video: https://youtu.be/5Jnr_49mzXU
+
 ## Description
 
 Harpocrates is a POC providing a Permanent Fully Homomorphic Encryption (FHE) smart contract on Arweave.
