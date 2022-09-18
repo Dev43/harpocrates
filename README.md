@@ -4,6 +4,14 @@
 
 > Harpocrates (Ancient Greek: Ἁρποκράτης) was the god of silence, secrets and confidentiality in the Hellenistic religion developed in Ptolemaic Alexandria (and also an embodiment of hope, according to Plutarch).
 
+## Description
+
+Harpocrates is a proof of concept of using a Fully Homomorphic Encryption scheme in a decentralized way.
+
+This is done using Nucypher's/[SunscreenTech](https://github.com/Sunscreen-tech/Sunscreen) sunscreen compiler, an easy to use FHE compiler that currently only uses the BFV scheme.
+The backend is the permanent data storage [Arweave](https://arweave.org).
+The ZK circuits are built using [Circom](https://github.com/iden3/circom) and compiled using [`snarkjs`](https://github.com/iden3/snarkjs).
+
 ## Warning
 
 This repo is a POC, not meant to be in production. Use at your own risks.
@@ -25,6 +33,8 @@ Now we have the tools (or at least we are very nearly there) to have the **optio
 This project is not perfect, but I hope it will have an impact on people and spark their imagination on other similar privacy preserving projects.
 
 ## How to build and run it
+
+Make sure you have [`snarkjs`](https://github.com/iden3/snarkjs) installed.
 
 To run this, first run `make` in the root of the project. This download the necessary dependencies and also set you up to be able to create and verify Zkproofs :).
 
@@ -77,3 +87,5 @@ SUBCOMMANDS:
 
 - [x] Integrate walletconnect too (v1 && v2)
 - [ ] Integrate Pinata
+
+### Future possibilities
