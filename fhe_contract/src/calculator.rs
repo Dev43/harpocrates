@@ -41,7 +41,6 @@ pub fn get_initial_state(contract_json: &str, pk: &PublicKey) -> Result<String, 
     )?;
 
     let ser_json = serde_json::to_string(&init_state).unwrap();
-    // println!("{}", ser_json);
     Ok(ser_json)
 }
 
@@ -109,7 +108,7 @@ mod tests {
         let res = calculate(&app, &counter_pk, vec![init_state, alice_vote])?;
 
         let final_tally: [Signed; 10] = runtime.decrypt(&res, &counter_sk)?;
-        println!("{:?}", final_tally);
+
         assert_eq!(final_tally[0].to_string(), "1".to_string());
 
         Ok(())

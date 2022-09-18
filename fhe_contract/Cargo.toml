@@ -25,6 +25,9 @@ walletconnect = { git = "https://github.com/Dev43/walletconnect-rs", branch = "f
     "web3",
     "qr",
 ] }
+owo-colors = "3"
+prettytable-rs = "^0.9"
+
 
 [dev-dependencies]
 tokio-test = "*"

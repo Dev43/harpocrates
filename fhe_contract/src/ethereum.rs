@@ -18,9 +18,8 @@ impl EthClient {
             },
         )?;
 
-        let (accounts, _) = c.ensure_session(qr::print_with_url).await?;
+        let (accounts, _) = c.ensure_session(qr::print).await?;
 
-        // println!("Connected accounts:");
         let main_account = format!("{:?}", accounts[0]);
         Ok(EthClient {
             client: c,
@@ -46,6 +45,8 @@ fn verify_sig(message: &str, sig: &[u8]) -> Result<String, Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
 
+    use walletconnect::ethers_core::utils::{hex, keccak256};
+
     use super::*;
 
     #[tokio::test]
@@ -53,7 +54,6 @@ mod tests {
         let msg = "hello";
         let h = keccak256(msg.as_bytes());
         let message_hash = hex::encode(&h);
-        println!("hash {}", message_hash);
 
         let c = EthClient::new().await.unwrap();
         let (acc, sig) = c.get_sig(msg).await.unwrap();

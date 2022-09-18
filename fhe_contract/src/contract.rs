@@ -69,7 +69,6 @@ mod tests {
 
         let c: [Signed; 10] = runtime.decrypt(&first_result[0], &counter_sk)?;
         // intermediate result
-        println!("{:?}", c);
 
         // now bob votes
         let bob_vote = runtime.encrypt(
@@ -97,7 +96,6 @@ mod tests {
         )?;
 
         let final_tally: [Signed; 10] = runtime.decrypt(&final_result[0], &counter_sk)?;
-        println!("{:?}", final_tally);
 
         assert_eq!(final_tally[0].to_string(), "2".to_string());
         Ok(())

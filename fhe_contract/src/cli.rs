@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use prettytable::{row, Cell, Row, Table};
 use serde::{Deserialize, Serialize};
 use sunscreen::types::bfv::Signed;
 use sunscreen::{Application, Ciphertext, PrivateKey, PublicKey, Runtime};
@@ -6,11 +7,12 @@ use sunscreen::{Application, Ciphertext, PrivateKey, PublicKey, Runtime};
 use crate::calculator::{calculate, decrypt, get_initial_state};
 use crate::compiler::compile;
 use crate::snarkjs::{generate_proof, generate_witness, verify_snark_proof};
+#[allow(unused)]
+use owo_colors::OwoColorize;
 use serde_json::{json, Value};
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::os::unix::prelude::PermissionsExt;
-
 /// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -121,8 +123,7 @@ async fn deploy() -> Result<String, Box<dyn std::error::Error>> {
     println!("Deploy: Arweave Tx ID: {} ", tx_id);
 
     // we wait till mined (main txn for now)
-    let mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
-    println!("{:?}", mined_res);
+    let _mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
 
     println!("Deploy: Contract inner ID: {} ", contract_id);
 
@@ -138,10 +139,6 @@ async fn init_zk(id: &String) -> Result<(), Box<dyn std::error::Error>> {
     let vote_is_valid_0001_zkey = read_file("./circom/vote_is_valid_0001.zkey").unwrap();
     let generate_witness = read_file("./bin/generate_witness/generate_witness").unwrap();
 
-    // TO DEPLOY - after the whole ceremony
-    // verification_key.json
-    // vote_is_valid_0001.zkey
-    // generate_witness
     let zk = ZkInfo {
         verification_key: verification_key,
         vote_is_valid_0001_zkey: vote_is_valid_0001_zkey,
@@ -156,8 +153,7 @@ async fn init_zk(id: &String) -> Result<(), Box<dyn std::error::Error>> {
     println!("ZKSnark: Arweave Tx ID: {} ", tx_id);
 
     // we wait till mined (main txn for now)
-    let mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
-    println!("{:?}", mined_res);
+    let _mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
 
     println!(
         "ZKSnark: ZKSnark initialized\n Arweave Tx ID: {} \n For Contract ID: {}",
@@ -178,11 +174,9 @@ async fn init_state(cid: &String) -> Result<(), Box<dyn std::error::Error>> {
     let init_state = get_initial_state(&contract_json, &pk).unwrap();
 
     let r = ar.initialize_state(&contract_id, init_state).await.unwrap();
-    println!("{:?}", r);
 
     // we wait till mined (main txn for now)
-    let mined_res = ar.wait_till_mined(&r.0).await.unwrap();
-    println!("{:?}", mined_res);
+    let _mined_res = ar.wait_till_mined(&r.0).await.unwrap();
 
     println!(
         "Init: State for Contract ID {} has been initialized ",
@@ -312,8 +306,48 @@ async fn compute_latest() -> Result<(), Box<dyn std::error::Error>> {
 
     // then we decrypt the output calculation
     println!("Compute Latest: current poll is {:?}", decrypted);
+
+    let mut table = Table::new();
+    table.add_row(row!["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]);
+    let rows = [
+        decrypted[0],
+        decrypted[1],
+        decrypted[2],
+        decrypted[3],
+        decrypted[4],
+        decrypted[5],
+        decrypted[6],
+        decrypted[7],
+        decrypted[8],
+        decrypted[9],
+    ];
+
+    let normal_rows: [Cell; 10] = rows.map(|x| Cell::new(&x.to_string()));
+
+    table.add_row(Row::new(normal_rows.to_vec()));
+
+    // we clear the screen
+    clear_screen();
+    println!("{}", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>".green());
+    println!("{}", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>".green());
+    println!("{}", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>".green());
+    println!("{}", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>".green());
+    println!("{}", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>".green());
+    // Print the table to stdout
+    table.printstd();
+    println!("{}", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>".green());
+    println!("{}", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>".green());
+    println!("{}", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>".green());
+    println!("{}", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>".green());
+    println!("{}", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>".green());
+
     Ok(())
 }
+
+fn clear_screen() {
+    print!("\x1B[2J\x1B[1;1H");
+}
+
 async fn vote(id: &String, index: &usize) -> Result<(), Box<dyn std::error::Error>> {
     if index > &9 && index < &0 {
         println!("Invalid choice, only from 0-9");
@@ -329,11 +363,6 @@ async fn vote(id: &String, index: &usize) -> Result<(), Box<dyn std::error::Erro
     let runtime = Runtime::new(app.params()).unwrap();
 
     let ar = crate::arweave::Ar::new("./arweave-keyfile.json".to_string()).await;
-
-    // TODO CURRENTLY WE DONT HAVE IDENTIFICATION OF THE USER -- need to do this with ETH/walletconnect + signature
-    // println!("Creating brand new user");
-    // let (new_user_pk, new_user_sk) = runtime.generate_keys().unwrap();
-    // println!("Brand new user created");
 
     let (pk, _) = get_main_keys();
 
@@ -388,8 +417,7 @@ async fn vote(id: &String, index: &usize) -> Result<(), Box<dyn std::error::Erro
     println!("Vote: Your vote is being sent ArID {} ", res.0);
 
     // we wait till mined (main txn for now)
-    let mined_res = ar.wait_till_mined(&res.0).await.unwrap();
-    println!("{:?}", mined_res);
+    let _mined_res = ar.wait_till_mined(&res.0).await.unwrap();
 
     println!("Vote: Your vote has been mined for {} ", contract_id);
     Ok(())
@@ -419,9 +447,15 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
             // deploy contract to arweave
             let contract_id = deploy().await?;
 
+            clear_screen();
+
             init_zk(&contract_id).await?;
 
+            clear_screen();
+
             init_state(&contract_id).await?;
+
+            clear_screen();
 
             // let futures = vec![
             //     // initialize the zk states
@@ -438,14 +472,22 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
             // fetch the zk info to populate our cache
             fetch_zk(&contract_id).await?;
+
+            clear_screen();
+
             // vote on who we want
             vote(&contract_id, &1).await?;
+
+            clear_screen();
+
             // fetch all the txn, the latest
             fetch_latest(&contract_id).await?;
+
+            clear_screen();
+
             // compute the current outcome
             compute_latest().await?;
 
-            println!("everyting has been deployed!!!");
             Ok(())
         }
         None => Ok(()),

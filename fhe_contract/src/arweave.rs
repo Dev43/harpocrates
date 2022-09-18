@@ -81,7 +81,6 @@ impl Ar {
                 contract_data.as_bytes().to_vec(),
                 Some(tags),
                 None,
-                // (60000000, 60000000) minimum price term for it to go through
                 (60000000, 60000000),
                 false,
             )
@@ -118,14 +117,7 @@ impl Ar {
 
         let mut tx = self
             .client
-            .create_transaction(
-                contract_data,
-                Some(tags),
-                None,
-                // (60000000, 60000000) minimum price term for it to go through
-                (60000000, 60000000),
-                false,
-            )
+            .create_transaction(contract_data, Some(tags), None, (60000000, 60000000), false)
             .await
             .unwrap();
 
@@ -186,7 +178,6 @@ impl Ar {
                 initial_state.as_bytes().to_vec(),
                 Some(tags),
                 None,
-                // (60000000, 60000000) minimum price term for it to go through
                 (60000000, 60000000),
                 false,
             )
@@ -194,8 +185,6 @@ impl Ar {
             .unwrap();
 
         tx = self.client.sign_transaction(tx).unwrap();
-
-        println!("Init: Arweave Tx ID: {} ", tx.id);
 
         let _res = self.client.post_transaction(&tx).await?;
 
@@ -228,7 +217,6 @@ impl Ar {
                 vote_data.as_bytes().to_vec(),
                 Some(tags),
                 None,
-                // (60000000, 60000000) minimum price term for it to go through
                 (60000000, 60000000),
                 false,
             )
@@ -236,8 +224,6 @@ impl Ar {
             .unwrap();
 
         tx = self.client.sign_transaction(tx).unwrap();
-
-        println!("Vote: Arweave Tx ID: {} ", tx.id);
 
         let _res = self.client.post_transaction(&tx).await?;
 
@@ -282,7 +268,6 @@ impl Ar {
             tokio::time::sleep(Duration::from_secs(5)).await;
             status = self.client.get_status(&id).await.unwrap();
         }
-        println!("Transaction with id {}, has been mined ", id);
         Ok(())
     }
 }
@@ -413,7 +398,6 @@ async fn fetch(contract_address: &str, contract_type: ContractType) -> Result<Ve
             .iter()
             .map(get_record)
             .collect();
-        println!("{:?}", values.len());
     }
     Ok(values)
 }
