@@ -17,7 +17,7 @@ And the connection to a private key store is done using [WalletConnect](https://
 
 ## Why should I care?
 
-Fully Homomorphic Encryption allows you to keep your data private, which was never possible before. To be able to get analytics on your data, you would usually be required to decrypt it from you database, send it to a third party so they can crunch the numbers and get it back to you. This means that to gain insight into your own data, you have to give it **all** away. With FHE, you don't have to, these same insights can be gotten while never ever revealing the inputs (and even the output!).
+Fully Homomorphic Encryption allows you to keep your data private, in a way which was never possible before. To be able to get analytics on your data, you would usually be required to decrypt it from you database, send it to a third party so they can crunch the numbers and get it back to you. This means that to gain insight into your own data, you have to give it **all** away. With FHE, you don't have to, these same insights can be gotten while never ever revealing the inputs (and even the output!).
 
 This allows you to do multi-party computation, identity management, private database lookups, games with full privacy and more!
 
