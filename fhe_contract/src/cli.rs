@@ -490,18 +490,27 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!();
     println!();
+    println!("🙌 🎉 Welcome to Harpocrates!🙌 🎉 ");
     println!();
-    println!(
-        "Welcome to Harpocrates, where you can create a trusted decentralized vote, without telling the world how you voted."
-    );
-    println!( "We do this by using Fully Homomorphic Encryption (FHE), ZKSnarks and a decentralized storage solution");
-    println!( "Today we are going to go through a scenario where we need to vote between 10 different propositions");
-    println!( "I, and I imagine you too, do not want everyone to know who I am voting for. This is where FHE is quite interesting.");
-    println!("But let's get going first!");
+    println!();
+    println!();
+    println!("🤫 🤫  If you are confused by the name, Harpocrates was the god of silence, secrets and confidentiality in the Hellenistic religion 🤫 🤫 ");
+    println!();
+    println!();
+    println!("Here you will be able to create a trusted decentralized vote, without telling the world how you voted!");
+    println!();
+    println!("HOW IS THIS POSSIBLE you enthusiastically ask?");
+    println!();
+    println!("We do this by using Fully Homomorphic Encryption (FHE), ZKSnarks and a decentralized storage solution");
+    println!("Today we will be going through a scenario where we need to vote between 10 different propositions");
+    println!();
+    println!();
+    println!("I, and I imagine you too, do not want everyone to know who I am voting for. This is where FHE is quite interesting.");
+    println!("So let's get going first!");
 
     println!();
     println!();
-    println!("We will start by creating a set of keys. These keys will be stored in a .cache folder in the fhe_contract directory.");
+    println!("We will start by creating a set of keys. These keys will be stored in a ./.cache folder in the fhe_contract directory.");
     println!("Most useful files will be stored in this folder, of course after we fetch them from the storage solution first");
 
     prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
@@ -522,7 +531,7 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!();
     println!("Now, I've already created an FHE friendly contract, that simply allows us to keep track of votes coming in for a specific propositions");
-    println!("What we will want to do now, is compile it and deploy it to a decentralized storage (either permanent like arweave or not like IPFS)");
+    println!("What we will want to do now, is compile it and deploy it to a decentralized storage (either permanent like Arweave or not like IPFS)");
 
     prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
 
@@ -543,12 +552,10 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("A QR code should be visible to you right now. Use any WalletConnect compatible wallet and scan the code");
     println!("It will first ask you to connect, and then ask you to sign a piece of message. Please do both");
 
-    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
-
     println!();
     println!();
     println!();
-    println!("Deploying... this can take sometime");
+    println!("Deploying contract... this will take some time.");
 
     // deploy contract to arweave
     // let contract_id = deploy().await?;
@@ -558,7 +565,7 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!();
     println!();
-    println!("Great! Now we've deployed the contract to Arweave. Now we will need to deploy all the necessary information for our ZKsnark circuit, so others can verify");
+    println!("Great! Now we've deployed the contract to Arweave. Now we will need to deploy all the necessary information for our ZKsnark circuit, so others can verify our proofs!");
     println!();
     println!();
     println!();
@@ -576,9 +583,9 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!();
     println!();
-    println!("Next up, we need to initialize our contract state. We are using the event model (or lazy evaluation)");
-    println!("which means that instead of having all the miners of a network validating a transaction in a smart contract");
-    println!("only the people that care about this data would. You essentially download all the transactions for this contract, and evaluate the outcome");
+    println!("Next up, we need to initialize our contract state. We are using the event-driven model (or lazy evaluation)");
+    println!("which means that instead of having all the miners of a network validating a transaction in a smart contract,");
+    println!("only the people that care about this smart contract would. You essentially download all the transactions for this contract, and evaluate the outcome");
     println!("locally. Our initial state is very simple, it's an array of ENCRYPTED numbers, all set to 0 (i.e [0,0,0,0,0,0,0,0,0,0])");
     println!();
     println!();
@@ -617,9 +624,11 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("We have deployed all that we need now, our contract is deployed, our state is bare and ready to get votes.");
     println!();
     prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
-    println!();
-    println!();
 
+    clear_screen();
+
+    println!();
+    println!();
     let index = prompt_for_int(
         "Choose your favorite proposition between 0 and 9 (10 total)",
         0,
@@ -627,6 +636,13 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
         "out of range you silly goose!",
     );
 
+    println!();
+    println!(
+        "Number {} interesting choice  🤔... would not have chosen that one but ok!",
+        index
+    );
+    println!();
+    println!();
     println!("Now let's explain a bit more what is happening with your vote.");
     println!("Essentially what is happening is that we are taking your input (for example 1), and creating an array");
     println!("that represents your vote (i.e. [0,1,0,0,0,0,0,0,0,0] - note the 2nd element is 1)");
@@ -645,14 +661,79 @@ async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
 
     clear_screen();
 
+    println!();
+    println!();
+    println!();
+    println!("We voted! Congrats! Now your vote is enshrined in perpetuity in an encrypted way!");
+    println!("Let's now move on and see if we can tally all of the __valid__ votes! ");
+
+    println!();
+    println!("We're going to be fetching all of the transactions that have been sent to this vote contract and save it locally so we can do some computation on it");
+
+    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
+    println!();
+    println!();
+
     // fetch all the txn, the latest
     // fetch_latest(&contract_id).await?;
+
+    clear_screen();
+
+    println!();
+    println!();
+    println!();
+    println!("Great, we've got all the transactions. Now let's do the real magic");
+    println!();
+    println!("Now the admin can fetch all the transactions (locally as we have them downloaded), and compute the result of the vote WITH ALL THE VOTES ENCRYPTED ");
+    println!("It's like magic, you can do addition and multiplication on ENCRYPTED values, and they will have the correct result when decrypted ");
+    println!();
+    println!(
+        "Just to be clear here, anyone can fetch these transactions and their corresponding data."
+    );
+    println!("Anyone can also do these computations and come out with the same answer at the end");
+    println!(
+        "But as they don't have the \"admin\" secret key to decrypt it, no one knows what it says."
+    );
+    println!();
+    println!("So let's do our calculations here, and see if our proposal is the winner");
+    println!("For the calculations it's very simple, we check the Eth address + signature (to ensure they know the Private key to that address)");
+    println!(
+        "We also check the Zkproof, ensuring the vote is valid and then we do the calculation"
+    );
+    println!("If any of these checks fail, we skip that vote as we can't be certain it is valid");
+    println!();
+    println!();
+    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
 
     clear_screen();
 
     // compute the current outcome
     // compute_latest().await?;
 
+    println!();
+    println!();
+    println!("Would you look at that! You just did a vote using FHE and Zksnarks! Well done you!");
+    println!();
+    println!();
+
+    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
+
+    println!();
+    println!();
+    println!();
+    println!();
+    println!("{}", ascii::SMILEY);
+    println!();
+    println!();
+    println!();
+    println!();
+    println!("And that's it! Thank you very much for checking out my project!");
+    println!();
+    println!();
+    println!();
+    println!();
+    println!();
+    println!();
     Ok(())
 }
 
