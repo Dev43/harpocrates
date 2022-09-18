@@ -5,9 +5,11 @@ use arloader::{
     Arweave,
 };
 // use futures::{stream, StreamExt};
+use crate::ethereum::EthClient;
 use reqwest;
 use ring::digest::{Context, SHA256};
 use serde_json::{json, Value};
+use std::fmt::Write;
 use std::str::FromStr;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -60,9 +62,18 @@ impl Ar {
 
         let contract_id = Base64(sha_256(id_data.as_bytes()).to_vec()).to_string();
 
-        let action = r#"{"action":"deploy", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
+        let action = r#"{"action":"deploy", arguments: []}"#;
 
-        let tags = self.create_tags(&contract_id, &unix_timestamp, action, ContractType::Source);
+        let (account, sig) = get_eth_metadata(&contract_data.as_bytes().to_vec()).await?;
+
+        let tags = self.create_tags(
+            &contract_id,
+            &unix_timestamp,
+            action,
+            ContractType::Source,
+            &account,
+            &sig,
+        );
 
         let mut tx = self
             .client
@@ -92,10 +103,18 @@ impl Ar {
         let unix_timestamp = get_unix_timestamp();
         // contract id is only the hash of the data and a unix timestamp -- this is only a POC - not secure as someone can change the unix timestamp
 
-        let action =
-            r#"{"action":"zk_snark", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
+        let action = r#"{"action":"zk_snark", arguments: []}"#;
 
-        let tags = self.create_tags(&contract_id, &unix_timestamp, action, ContractType::ZkSnark);
+        let (account, sig) = get_eth_metadata(&contract_data).await?;
+
+        let tags = self.create_tags(
+            &contract_id,
+            &unix_timestamp,
+            action,
+            ContractType::ZkSnark,
+            &account,
+            &sig,
+        );
 
         let mut tx = self
             .client
@@ -123,6 +142,8 @@ impl Ar {
         unix_timestamp: &str,
         action: &str,
         contract_type: ContractType,
+        eth_address: &str,
+        eth_sig: &str,
     ) -> Vec<Tag<Base64>> {
         let app = get_app_name(contract_type);
         vec![
@@ -135,15 +156,8 @@ impl Ar {
                 .unwrap(),
             Tag::<Base64>::from_utf8_strs("Unix-Time", &unix_timestamp).unwrap(),
             Tag::<Base64>::from_utf8_strs("Input", &action).unwrap(),
-            // Tag::<Base64>::from_utf8_strs(
-            //     "Eth-Address",
-            //     "0x...",
-            // ).unwrap(),
-            // Tag::<Base64>::from_utf8_strs(
-            //     "Eth-Signature",
-            //     "0x...",
-            // )
-            // .unwrap(),
+            Tag::<Base64>::from_utf8_strs("Eth-Address", eth_address).unwrap(),
+            Tag::<Base64>::from_utf8_strs("Eth-Signature", eth_sig).unwrap(),
         ]
     }
 
@@ -154,13 +168,16 @@ impl Ar {
     ) -> Result<(String, String), Box<dyn std::error::Error>> {
         let unix_timestamp = get_unix_timestamp();
 
-        let action =
-            r#"{"action":"init_state", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
+        let action = r#"{"action":"init_state", arguments: []}"#;
+        let (account, sig) = get_eth_metadata(&initial_state.as_bytes().to_vec()).await?;
+
         let tags = self.create_tags(
             &contract_id,
             &unix_timestamp,
             action,
             ContractType::Interaction,
+            &account,
+            &sig,
         );
 
         let mut tx = self
@@ -193,12 +210,16 @@ impl Ar {
         let unix_timestamp = get_unix_timestamp();
 
         // todo, currently we don't send out multiple votes, so no arguments of last votes
-        let action = r#"{"action":"vote", arguments: [], validity_proof:"ID_OF_VALIDITY_PROOF"}"#;
+        let action = r#"{"action":"vote", arguments: []}"#;
+        let (account, sig) = get_eth_metadata(&vote_data.as_bytes().to_vec()).await?;
+
         let tags = self.create_tags(
             &contract_id,
             &unix_timestamp,
             action,
             ContractType::Interaction,
+            &account,
+            &sig,
         );
 
         let mut tx = self
@@ -435,4 +456,34 @@ mod tests {
         .unwrap();
         Ok(())
     }
+}
+
+pub fn encode_hex(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for &b in bytes {
+        write!(&mut s, "{:02x}", b).unwrap();
+    }
+    s
+}
+
+pub async fn get_eth_metadata(
+    data: &Vec<u8>,
+) -> Result<(String, String), Box<dyn std::error::Error>> {
+    // to show you own your ethereum address, you need to sign a message
+    // the message is the concatenation of your address + hash of the data being deployed
+
+    // we get the hash
+    let hash = sha_256(&data);
+
+    let c = EthClient::new().await?;
+
+    let account = c.account();
+    let account_b = account.as_bytes();
+
+    let mut iter = account_b.into_iter().chain(&hash);
+    let result = [(); 74].map(|_| iter.next().unwrap().to_owned());
+
+    let hashed_message = encode_hex(&sha_256(&result));
+
+    c.get_sig(&hashed_message).await
 }

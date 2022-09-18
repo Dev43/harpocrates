@@ -21,6 +21,10 @@ tokio = { version = "1", features = ["full"] }
 url = "2.2.2"
 ring = "0.16.20"
 futures = "0.3"
+walletconnect = { git = "https://github.com/Dev43/walletconnect-rs", branch = "feat/ethberlin", features = [
+    "web3",
+    "qr",
+] }
 
 [dev-dependencies]
 tokio-test = "*"

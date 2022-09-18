@@ -6,7 +6,6 @@ use sunscreen::{Application, Ciphertext, PrivateKey, PublicKey, Runtime};
 use crate::calculator::{calculate, decrypt, get_initial_state};
 use crate::compiler::compile;
 use crate::snarkjs::{generate_proof, generate_witness, verify_snark_proof};
-use futures::{future, FutureExt};
 use serde_json::{json, Value};
 use std::fs::{self, File};
 use std::io::prelude::*;
@@ -259,7 +258,7 @@ async fn compute_latest() -> Result<(), Box<dyn std::error::Error>> {
 
         happens when serde_json::from_value(intx["data"].clone()).unwrap();
         */
-
+        // todo add verifying eth sig
         // this bit does the calculations
         #[allow(unused_assignments)]
         let mut t_s = String::from("");
@@ -386,6 +385,7 @@ async fn vote(id: &String, index: &usize) -> Result<(), Box<dyn std::error::Erro
 
     // wait for it to get mined
     let res = ar.vote(&contract_id, vote_data_string).await.unwrap();
+    println!("Vote: Your vote is being sent ArID {} ", res.0);
 
     // we wait till mined (main txn for now)
     let mined_res = ar.wait_till_mined(&res.0).await.unwrap();
@@ -419,18 +419,22 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
             // deploy contract to arweave
             let contract_id = deploy().await?;
 
-            let futures = vec![
-                // initialize the zk states
-                init_zk(&contract_id).boxed(),
-                // init the state
-                init_state(&contract_id).boxed(),
-            ];
-            let results = future::join_all(futures).await;
+            init_zk(&contract_id).await?;
+
+            init_state(&contract_id).await?;
+
+            // let futures = vec![
+            //     // initialize the zk states
+            //     init_zk(&contract_id).boxed(),
+            //     // init the state
+            //     init_state(&contract_id).boxed(),
+            // ];
+            // let results = future::join_all(futures).await;
 
             // we unwrap all ensuring no erro
-            for r in results {
-                r.unwrap();
-            }
+            // for r in results {
+            //     r.unwrap();
+            // }
 
             // fetch the zk info to populate our cache
             fetch_zk(&contract_id).await?;

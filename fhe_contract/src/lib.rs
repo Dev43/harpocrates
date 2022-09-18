@@ -9,3 +9,5 @@ pub mod cli;
 pub mod arweave;
 
 pub mod snarkjs;
+
+pub mod ethereum;
