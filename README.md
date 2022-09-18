@@ -11,6 +11,7 @@ Harpocrates is a proof of concept of using a Fully Homomorphic Encryption scheme
 This is done using Nucypher's/[SunscreenTech](https://github.com/Sunscreen-tech/Sunscreen) sunscreen compiler, an easy to use FHE compiler that currently only uses the BFV scheme.
 The backend is the permanent data storage [Arweave](https://arweave.org).
 The ZK circuits are built using [Circom](https://github.com/iden3/circom) and compiled using [`snarkjs`](https://github.com/iden3/snarkjs).
+And the connection to a private key store is done using [WalletConnect](https://github.com/WalletConnect)
 
 ## Warning
 
@@ -38,7 +39,7 @@ Make sure you have [`snarkjs`](https://github.com/iden3/snarkjs) installed.
 
 To run this, first run `make` in the root of the project. This download the necessary dependencies and also set you up to be able to create and verify Zkproofs :).
 
-Now, if you want this to be deployed to Arweave, you will need to have an arweave-keyfile with some AR on it. You can get a prefunded one [here](https://faucet.arweave.net/). Make sure to have the keyfile in the `fhe_contract` repository with the name `arweave-keyfile.json`.
+Now, if you want this to be deployed to Arweave, you will need to have an arweave-keyfile with some AR on it. You can get a pre-funded one [here](https://faucet.arweave.net/). Make sure to have the keyfile in the `fhe_contract` repository with the name `arweave-keyfile.json`.
 
 Now all you have to do is go into the fhe_contract repository `fhe_contract` and run `cargo run -- run-all`. From there, just follow the necessary prompts!
 
@@ -85,7 +86,7 @@ SUBCOMMANDS:
 
 ### Stretch
 
-- [x] Integrate walletconnect too (v1 && v2)
+- [x] Integrate WalletConnect
 - [ ] Integrate Pinata
 
 ### Future possibilities
