@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use sunscreen::types::bfv::Signed;
 use sunscreen::{Application, Ciphertext, PrivateKey, PublicKey, Runtime};
 
+use crate::ascii;
 use crate::calculator::{calculate, decrypt, get_initial_state};
 use crate::compiler::compile;
 use crate::snarkjs::{generate_proof, generate_witness, verify_snark_proof};
@@ -426,6 +427,8 @@ async fn vote(id: &String, index: &usize) -> Result<(), Box<dyn std::error::Erro
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
+    println!("{}", ascii::HARPOCRATES);
+
     let _ = match &cli.command {
         Some(Commands::CreateNewUser {}) => create_new_user(),
         Some(Commands::Deploy {}) => {
@@ -441,55 +444,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
             contract_id: id,
             number: index,
         }) => Ok(vote(id, index).await?),
-        Some(Commands::RunAll {}) => {
-            // create a new user
-            create_new_user()?;
-            // deploy contract to arweave
-            let contract_id = deploy().await?;
-
-            clear_screen();
-
-            init_zk(&contract_id).await?;
-
-            clear_screen();
-
-            init_state(&contract_id).await?;
-
-            clear_screen();
-
-            // let futures = vec![
-            //     // initialize the zk states
-            //     init_zk(&contract_id).boxed(),
-            //     // init the state
-            //     init_state(&contract_id).boxed(),
-            // ];
-            // let results = future::join_all(futures).await;
-
-            // we unwrap all ensuring no erro
-            // for r in results {
-            //     r.unwrap();
-            // }
-
-            // fetch the zk info to populate our cache
-            fetch_zk(&contract_id).await?;
-
-            clear_screen();
-
-            // vote on who we want
-            vote(&contract_id, &1).await?;
-
-            clear_screen();
-
-            // fetch all the txn, the latest
-            fetch_latest(&contract_id).await?;
-
-            clear_screen();
-
-            // compute the current outcome
-            compute_latest().await?;
-
-            Ok(())
-        }
+        Some(Commands::RunAll {}) => Ok(run_all().await?),
         None => Ok(()),
     };
     // show a progress bar as we move along!
@@ -528,4 +483,216 @@ fn read_file(path: &str) -> std::io::Result<Vec<u8>> {
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
     return Ok(buf);
+}
+
+// TODO make this interactive
+async fn run_all() -> Result<(), Box<dyn std::error::Error>> {
+    println!();
+    println!();
+    println!();
+    println!();
+    println!(
+        "Welcome to Harpocrates, where you can create a trusted decentralized vote, without telling the world how you voted."
+    );
+    println!( "We do this by using Fully Homomorphic Encryption (FHE), ZKSnarks and a decentralized storage solution");
+    println!( "Today we are going to go through a scenario where we need to vote between 10 different propositions");
+    println!( "I, and I imagine you too, do not want everyone to know who I am voting for. This is where FHE is quite interesting.");
+    println!("But let's get going first!");
+
+    println!();
+    println!();
+    println!("We will start by creating a set of keys. These keys will be stored in a .cache folder in the fhe_contract directory.");
+    println!("Most useful files will be stored in this folder, of course after we fetch them from the storage solution first");
+
+    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
+
+    clear_screen();
+    println!();
+    println!();
+    println!();
+    println!("Creating main user...");
+    println!("(this main user is the one that administrates the vote)");
+    // create a new user
+    create_new_user()?;
+    println!();
+    println!();
+    println!();
+    println!("Main user created! Welcome whoever you are! You now have a set of keys to be able to encrypt/decrypt and do some awesome calculations on encrypted data  ");
+    println!();
+    println!();
+    println!();
+    println!("Now, I've already created an FHE friendly contract, that simply allows us to keep track of votes coming in for a specific propositions");
+    println!("What we will want to do now, is compile it and deploy it to a decentralized storage (either permanent like arweave or not like IPFS)");
+
+    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
+
+    clear_screen();
+
+    println!();
+    println!();
+    println!("Ok, we're now going to deploy this contract to Arweave. As long as you have some AR in your wallet, there shouldn't be any issue.");
+    println!("What you will also need is an Ethereum wallet with a WalletConnect functionality (such as Metamask)");
+    println!("The reason is simple, for every transaction that we do, we need to keep track of who is sending these, we don't necessarily want everyone to vote on this, but just a subset of people. ");
+    println!("We also need to ensure that this person is actually who they say they are. And so, you will need to sign a piece of data before we deploy this. ");
+
+    clear_screen();
+
+    println!();
+    println!();
+    println!();
+    println!("A QR code should be visible to you right now. Use any WalletConnect compatible wallet and scan the code");
+    println!("It will first ask you to connect, and then ask you to sign a piece of message. Please do both");
+
+    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
+
+    println!();
+    println!();
+    println!();
+    println!("Deploying... this can take sometime");
+
+    // deploy contract to arweave
+    // let contract_id = deploy().await?;
+
+    clear_screen();
+
+    println!();
+    println!();
+    println!();
+    println!("Great! Now we've deployed the contract to Arweave. Now we will need to deploy all the necessary information for our ZKsnark circuit, so others can verify");
+    println!();
+    println!();
+    println!();
+    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
+    clear_screen();
+
+    println!();
+    println!(
+        "Deploying ZK Params... this will take some time. Again, you will need to sign a message"
+    );
+    // init_zk(&contract_id).await?;
+
+    clear_screen();
+
+    println!();
+    println!();
+    println!();
+    println!("Next up, we need to initialize our contract state. We are using the event model (or lazy evaluation)");
+    println!("which means that instead of having all the miners of a network validating a transaction in a smart contract");
+    println!("only the people that care about this data would. You essentially download all the transactions for this contract, and evaluate the outcome");
+    println!("locally. Our initial state is very simple, it's an array of ENCRYPTED numbers, all set to 0 (i.e [0,0,0,0,0,0,0,0,0,0])");
+    println!();
+    println!();
+    println!();
+    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
+
+    println!();
+    println!("Deploying initial state... this will take some time");
+
+    // init_state(&contract_id).await?;
+
+    clear_screen();
+
+    println!();
+    println!();
+    println!();
+    println!("Ok, now that we've deployed all of our needed things, we can start fetching them (as though we didn't create them!)");
+    println!("We will fetch all of the ZK params that we deployed earlier, these will be necessary for us later on");
+    println!();
+    println!();
+    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
+
+    clear_screen();
+    println!();
+    println!("Fetching ZK state (kinda fast!)");
+
+    // fetch the zk info to populate our cache
+    // fetch_zk(&contract_id).await?;
+
+    clear_screen();
+
+    println!();
+    println!();
+    println!();
+    println!("Sweet, now let's get to the good stuff and actually voting!");
+    println!("We have deployed all that we need now, our contract is deployed, our state is bare and ready to get votes.");
+    println!();
+    prompt_for_any("Press any key to Continue (Ctrl+C to stop)");
+    println!();
+    println!();
+
+    let index = prompt_for_int(
+        "Choose your favorite proposition between 0 and 9 (10 total)",
+        0,
+        9,
+        "out of range you silly goose!",
+    );
+
+    println!("Now let's explain a bit more what is happening with your vote.");
+    println!("Essentially what is happening is that we are taking your input (for example 1), and creating an array");
+    println!("that represents your vote (i.e. [0,1,0,0,0,0,0,0,0,0] - note the 2nd element is 1)");
+    println!("but we can't just send that up on the blockchain, otherwise people will know who you voted for");
+    println!("so what we do is we encrypt it using an FHE scheme. This encryption is done using the voter admin's public key");
+    println!("now as this gets deployed on the blockchain, no one will know who you voted for (except the voter admin, which we will talk later about even him/her not knowing!)");
+    println!("But how do we know that you voted correctly? How do we know that you didn't put 100 votes for your proposition?");
+    println!("This is where the ZkSnarks come in. You see, in addition to your vote, there is also a ZKproof that proves that you voted correctly.");
+    println!("Now it's not perfect, it's not a proof that shows directly that the encryption that was produced comes from a valid input");
+    println!("but there are some FHE schemes (this one - bfv - actually has some research on this ) that are starting to have these proofs, which is super cool ");
+    println!();
+    println!("So to recap, we are sending an encrypted version of your vote and a ZKproof to prove that your vote should be valid ");
+
+    // vote on who we want
+    // vote(&contract_id, &index).await?;
+
+    clear_screen();
+
+    // fetch all the txn, the latest
+    // fetch_latest(&contract_id).await?;
+
+    clear_screen();
+
+    // compute the current outcome
+    // compute_latest().await?;
+
+    Ok(())
+}
+
+fn prompt_for_any(prompt: &str) {
+    // Blank the terminal
+    println!();
+    println!();
+    println!("{}", prompt);
+
+    loop {
+        let mut line = String::default();
+        std::io::stdin().read_line(&mut line).unwrap();
+        return;
+    }
+}
+
+fn prompt_for_int(prompt: &str, min: i64, max: i64, out_of_range_message: &str) -> i64 {
+    let int_val;
+
+    // Blank the terminal
+    println!("{}", prompt);
+
+    loop {
+        let mut line = String::default();
+        std::io::stdin().read_line(&mut line).unwrap();
+
+        match line.trim().parse::<i64>() {
+            Ok(v) => {
+                if v > max || v < min {
+                    println!("{}", out_of_range_message);
+                } else {
+                    int_val = v;
+                    break;
+                }
+            }
+            _ => {
+                println!("Not an integer. Try again.");
+            }
+        };
+    }
+
+    int_val
 }

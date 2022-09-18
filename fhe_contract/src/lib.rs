@@ -10,4 +10,6 @@ pub mod arweave;
 
 pub mod snarkjs;
 
+pub mod ascii;
+
 pub mod ethereum;
