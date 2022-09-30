@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 # sunscreen = "*"
-sunscreen = { git = "https://github.com/Dev43/Sunscreen", branch = "feat/secret_deserialization" }
-seal_fhe = { git = "https://github.com/Dev43/Sunscreen", branch = "feat/secret_deserialization" }
+sunscreen = { git = "https://github.com/Dev43/Sunscreen", rev = "6e4636de5783c2efe00bc32cf4e1b916f882429c" }
+seal_fhe = { git = "https://github.com/Dev43/Sunscreen", rev = "6e4636de5783c2efe00bc32cf4e1b916f882429c" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 bincode = "*"
@@ -28,7 +28,8 @@ walletconnect = { git = "https://github.com/Dev43/walletconnect-rs", branch = "f
 owo-colors = "3"
 prettytable-rs = "^0.9"
 ethers = "0.13.0"
-
+arseeding-rust = { git = "https://github.com/Dev43/arseeding-rust", branch = "main" }
+async-trait = "0.1.57"
 
 [dev-dependencies]
 tokio-test = "*"

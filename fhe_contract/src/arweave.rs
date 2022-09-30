@@ -1,24 +1,80 @@
+use crate::ethereum::EthClient;
 use arloader::{
     error::Error,
     status::StatusCode,
     transaction::{Base64, FromUtf8Strs, Tag},
     Arweave,
 };
-// use futures::{stream, StreamExt};
-use crate::ethereum::EthClient;
+use arseeding_rust::{arseeding_types::ASError, client::ASClient};
+use async_trait::async_trait;
 use reqwest;
 use ring::digest::{Context, SHA256};
 use serde_json::{json, Value};
-use std::fmt::Write;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
+use std::{collections::HashMap, fmt::Write};
 use std::{path::PathBuf, time::UNIX_EPOCH};
 use tokio::fs;
 use url::Url;
 
-pub struct Ar {
+#[async_trait]
+pub trait Uploader {
+    async fn upload(&self, data: Vec<u8>, tags: Vec<Tag<Base64>>) -> Result<String, ASError>;
+}
+pub struct ArseedingUploader {
+    client: ASClient,
+}
+
+impl ArseedingUploader {
+    fn new(client: ASClient) -> Self {
+        ArseedingUploader { client }
+    }
+}
+
+#[async_trait]
+impl Uploader for ArseedingUploader {
+    async fn upload(&self, data: Vec<u8>, tags: Vec<Tag<Base64>>) -> Result<String, ASError> {
+        let mut t = HashMap::new();
+        for tag in tags {
+            t.insert(
+                tag.name.to_utf8_string().unwrap(),
+                tag.value.to_utf8_string().unwrap(),
+            );
+        }
+
+        let bundle_id = self.client.send_and_pay("AR", &t, data, "").await?;
+
+        Ok(bundle_id)
+    }
+}
+
+pub struct ArweaveUploader {
     client: Arweave,
+}
+
+impl ArweaveUploader {
+    fn new(client: Arweave) -> Self {
+        ArweaveUploader { client }
+    }
+}
+
+#[async_trait]
+impl Uploader for ArweaveUploader {
+    async fn upload(&self, data: Vec<u8>, tags: Vec<Tag<Base64>>) -> Result<String, ASError> {
+        let mut tx = self
+            .client
+            .create_transaction(data, Some(tags), None, (60000000, 60000000), false)
+            .await
+            .unwrap();
+
+        tx = self.client.sign_transaction(tx).unwrap();
+
+        let _res = self.client.post_transaction(&tx).await?;
+
+        Ok(tx.id.to_string())
+    }
 }
 
 #[derive(PartialEq, Copy, Clone)]
@@ -28,16 +84,32 @@ enum ContractType {
     ZkSnark,
 }
 
+pub struct Ar {
+    client: Arweave,
+    uploader: Arc<dyn Uploader>,
+}
+
 impl Ar {
     pub async fn new(path: String) -> Self {
         let arweave = Arweave::from_keypair_path(
+            PathBuf::from(path.clone()),
+            Url::from_str("http://arweave.net").unwrap(),
+        )
+        .await
+        .unwrap();
+        let arweave2 = Arweave::from_keypair_path(
             PathBuf::from(path),
             Url::from_str("http://arweave.net").unwrap(),
         )
         .await
         .unwrap();
 
-        Ar { client: arweave }
+        let uploader = Arc::new(ArweaveUploader::new(arweave2));
+
+        Ar {
+            client: arweave,
+            uploader: uploader,
+        }
     }
 
     // {
@@ -66,7 +138,7 @@ impl Ar {
 
         let (account, sig) = get_eth_metadata(&contract_data.as_bytes().to_vec()).await?;
 
-        let tags = self.create_tags(
+        let tags = create_tags(
             &contract_id,
             &unix_timestamp,
             action,
@@ -75,23 +147,13 @@ impl Ar {
             &sig,
         );
 
-        let mut tx = self
-            .client
-            .create_transaction(
-                contract_data.as_bytes().to_vec(),
-                Some(tags),
-                None,
-                (60000000, 60000000),
-                false,
-            )
+        let tx = self
+            .uploader
+            .upload(contract_data.as_bytes().to_vec(), tags)
             .await
             .unwrap();
 
-        tx = self.client.sign_transaction(tx).unwrap();
-
-        let _res = self.client.post_transaction(&tx).await?;
-
-        Ok((tx.id.to_string(), contract_id))
+        Ok((tx, contract_id))
     }
 
     pub async fn deploy_zksnark(
@@ -106,7 +168,7 @@ impl Ar {
 
         let (account, sig) = get_eth_metadata(&contract_data).await?;
 
-        let tags = self.create_tags(
+        let tags = create_tags(
             &contract_id,
             &unix_timestamp,
             action,
@@ -115,42 +177,9 @@ impl Ar {
             &sig,
         );
 
-        let mut tx = self
-            .client
-            .create_transaction(contract_data, Some(tags), None, (60000000, 60000000), false)
-            .await
-            .unwrap();
+        let tx = self.uploader.upload(contract_data, tags).await.unwrap();
 
-        tx = self.client.sign_transaction(tx).unwrap();
-
-        let _res = self.client.post_transaction(&tx).await?;
-
-        Ok((tx.id.to_string(), contract_id.to_string()))
-    }
-
-    fn create_tags(
-        &self,
-        contract_id: &str,
-        unix_timestamp: &str,
-        action: &str,
-        contract_type: ContractType,
-        eth_address: &str,
-        eth_sig: &str,
-    ) -> Vec<Tag<Base64>> {
-        let app = get_app_name(contract_type);
-        vec![
-            Tag::<Base64>::from_utf8_strs("App-Name", &app).unwrap(),
-            Tag::<Base64>::from_utf8_strs("App-Version", "0.0.1").unwrap(),
-            Tag::<Base64>::from_utf8_strs("Contract", &contract_id).unwrap(),
-            Tag::<Base64>::from_utf8_strs("Content-Type", "application/json").unwrap(),
-            Tag::<Base64>::from_utf8_strs("Sunscreen-Version", "0.6.1").unwrap(),
-            Tag::<Base64>::from_utf8_strs("Validity-Proof", "ZkSnark/circom@2.0.8/snarkjs@0.4.27")
-                .unwrap(),
-            Tag::<Base64>::from_utf8_strs("Unix-Time", &unix_timestamp).unwrap(),
-            Tag::<Base64>::from_utf8_strs("Input", &action).unwrap(),
-            Tag::<Base64>::from_utf8_strs("Eth-Address", eth_address).unwrap(),
-            Tag::<Base64>::from_utf8_strs("Eth-Signature", eth_sig).unwrap(),
-        ]
+        Ok((tx, contract_id.to_string()))
     }
 
     pub async fn initialize_state(
@@ -163,7 +192,7 @@ impl Ar {
         let action = r#"{"action":"init_state", arguments: []}"#;
         let (account, sig) = get_eth_metadata(&initial_state.as_bytes().to_vec()).await?;
 
-        let tags = self.create_tags(
+        let tags = create_tags(
             &contract_id,
             &unix_timestamp,
             action,
@@ -172,23 +201,13 @@ impl Ar {
             &sig,
         );
 
-        let mut tx = self
-            .client
-            .create_transaction(
-                initial_state.as_bytes().to_vec(),
-                Some(tags),
-                None,
-                (60000000, 60000000),
-                false,
-            )
+        let tx = self
+            .uploader
+            .upload(initial_state.as_bytes().to_vec(), tags)
             .await
             .unwrap();
 
-        tx = self.client.sign_transaction(tx).unwrap();
-
-        let _res = self.client.post_transaction(&tx).await?;
-
-        Ok((tx.id.to_string(), contract_id.to_string()))
+        Ok((tx.to_string(), contract_id.to_string()))
     }
 
     pub async fn vote(
@@ -202,7 +221,7 @@ impl Ar {
         let action = r#"{"action":"vote", arguments: []}"#;
         let (account, sig) = get_eth_metadata(&vote_data.as_bytes().to_vec()).await?;
 
-        let tags = self.create_tags(
+        let tags = create_tags(
             &contract_id,
             &unix_timestamp,
             action,
@@ -211,23 +230,13 @@ impl Ar {
             &sig,
         );
 
-        let mut tx = self
-            .client
-            .create_transaction(
-                vote_data.as_bytes().to_vec(),
-                Some(tags),
-                None,
-                (60000000, 60000000),
-                false,
-            )
+        let tx = self
+            .uploader
+            .upload(vote_data.as_bytes().to_vec(), tags)
             .await
             .unwrap();
 
-        tx = self.client.sign_transaction(tx).unwrap();
-
-        let _res = self.client.post_transaction(&tx).await?;
-
-        Ok((tx.id.to_string(), contract_id.to_string()))
+        Ok((tx.to_string(), contract_id.to_string()))
     }
 
     pub async fn fetch_latest_state(
@@ -470,4 +479,28 @@ pub async fn get_eth_metadata(
     let hashed_message = encode_hex(&sha_256(&result));
 
     c.get_sig(&hashed_message).await
+}
+
+fn create_tags(
+    contract_id: &str,
+    unix_timestamp: &str,
+    action: &str,
+    contract_type: ContractType,
+    eth_address: &str,
+    eth_sig: &str,
+) -> Vec<Tag<Base64>> {
+    let app = get_app_name(contract_type);
+    vec![
+        Tag::<Base64>::from_utf8_strs("App-Name", &app).unwrap(),
+        Tag::<Base64>::from_utf8_strs("App-Version", "0.0.1").unwrap(),
+        Tag::<Base64>::from_utf8_strs("Contract", &contract_id).unwrap(),
+        Tag::<Base64>::from_utf8_strs("Content-Type", "application/json").unwrap(),
+        Tag::<Base64>::from_utf8_strs("Sunscreen-Version", "0.6.1").unwrap(),
+        Tag::<Base64>::from_utf8_strs("Validity-Proof", "ZkSnark/circom@2.0.8/snarkjs@0.4.27")
+            .unwrap(),
+        Tag::<Base64>::from_utf8_strs("Unix-Time", &unix_timestamp).unwrap(),
+        Tag::<Base64>::from_utf8_strs("Input", &action).unwrap(),
+        Tag::<Base64>::from_utf8_strs("Eth-Address", eth_address).unwrap(),
+        Tag::<Base64>::from_utf8_strs("Eth-Signature", eth_sig).unwrap(),
+    ]
 }
