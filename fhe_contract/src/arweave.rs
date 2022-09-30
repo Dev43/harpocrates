@@ -5,7 +5,12 @@ use arloader::{
     transaction::{Base64, FromUtf8Strs, Tag},
     Arweave,
 };
-use arseeding_rust::{arseeding_types::ASError, client::ASClient};
+use arseeding_rust::{
+    arseeding_types::ASError,
+    client::ASClient,
+    everpay::{ArweaveSigner, Everpay},
+    everpay_client::EverpayClient,
+};
 use async_trait::async_trait;
 use reqwest;
 use ring::digest::{Context, SHA256};
@@ -97,17 +102,39 @@ impl Ar {
         )
         .await
         .unwrap();
+        // TODO implement copy trait
         let arweave2 = Arweave::from_keypair_path(
+            PathBuf::from(path.clone()),
+            Url::from_str("http://arweave.net").unwrap(),
+        )
+        .await
+        .unwrap();
+        let arweave3 = Arweave::from_keypair_path(
             PathBuf::from(path),
             Url::from_str("http://arweave.net").unwrap(),
         )
         .await
         .unwrap();
 
-        let uploader = Arc::new(ArweaveUploader::new(arweave2));
+        // let uploader = Arc::new(ArweaveUploader::new(arweave2));
+
+        let signer = Arc::new(ArweaveSigner::new(arweave));
+
+        let everpay = Everpay::new(EverpayClient::default(), signer)
+            .await
+            .unwrap();
+
+        let arseeding_client = ASClient::new(
+            Url::from_str("https://arseed.web3infra.dev").unwrap(),
+            reqwest::Client::new(),
+            arweave2,
+            everpay,
+        );
+
+        let uploader = Arc::new(ArseedingUploader::new(arseeding_client));
 
         Ar {
-            client: arweave,
+            client: arweave3,
             uploader: uploader,
         }
     }
@@ -268,15 +295,24 @@ impl Ar {
         Ok(zk_snark)
     }
 
+    // we have to change wait till mined as we are using bundles here, the /tx route would not work
     pub async fn wait_till_mined(&self, tx_id: &str) -> Result<(), Error> {
-        let id = Base64::from_str(&tx_id).unwrap();
+        let c = reqwest::Client::new();
 
-        let mut status = self.client.get_status(&id).await.unwrap();
+        let mut status = reqwest::StatusCode::NOT_FOUND;
 
-        while status.status != StatusCode::Confirmed {
+        while status != reqwest::StatusCode::OK {
             tokio::time::sleep(Duration::from_secs(5)).await;
-            status = self.client.get_status(&id).await.unwrap();
+            status = c
+                .get(format!("https://arweave.net/{}", tx_id))
+                .send()
+                .await
+                .unwrap()
+                .status();
+
+            println!("{}", status);
         }
+
         Ok(())
     }
 }
