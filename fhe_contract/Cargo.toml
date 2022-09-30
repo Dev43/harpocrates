@@ -27,6 +27,7 @@ walletconnect = { git = "https://github.com/Dev43/walletconnect-rs", branch = "f
 ] }
 owo-colors = "3"
 prettytable-rs = "^0.9"
+ethers = "0.13.0"
 
 
 [dev-dependencies]
