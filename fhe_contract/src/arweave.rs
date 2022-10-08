@@ -94,6 +94,8 @@ pub struct Ar {
     uploader: Arc<dyn Uploader>,
 }
 
+// TODO implement a flag to choose how we send to arweave.
+
 impl Ar {
     pub async fn new(path: String) -> Self {
         let arweave = Arweave::from_keypair_path(
@@ -102,7 +104,7 @@ impl Ar {
         )
         .await
         .unwrap();
-        // TODO implement copy trait
+
         let arweave2 = Arweave::from_keypair_path(
             PathBuf::from(path.clone()),
             Url::from_str("http://arweave.net").unwrap(),

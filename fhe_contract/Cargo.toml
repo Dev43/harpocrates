@@ -5,6 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 # sunscreen = "*"
 sunscreen = { git = "https://github.com/Dev43/Sunscreen", rev = "6e4636de5783c2efe00bc32cf4e1b916f882429c" }
@@ -14,10 +17,10 @@ serde_json = "1.0"
 bincode = "*"
 clap = { version = "3.2.22", features = ["derive"] }
 indicatif = "0.17.1"
-arloader = "0.1.63"
+arloader = { git = "https://github.com/Dev43/arloader", branch = "feat/wasm" }
 reqwest = { version = "0.11", features = ["json"] }
 serde_derive = "1.0.130"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt", "sync", "time"] }
 url = "2.2.2"
 ring = "0.16.20"
 futures = "0.3"
@@ -28,8 +31,11 @@ walletconnect = { git = "https://github.com/Dev43/walletconnect-rs", branch = "f
 owo-colors = "3"
 prettytable-rs = "^0.9"
 ethers = "0.13.0"
-arseeding-rust = { git = "https://github.com/Dev43/arseeding-rust", branch = "main" }
+arseeding-rust = { git = "https://github.com/Dev43/arseeding-rust", branch = "feat/wasm" }
 async-trait = "0.1.57"
+wasm-bindgen = "0.2.83"
+# openssl = { version = "0.10.32", features = ["vendored"] }
+
 
 [dev-dependencies]
 tokio-test = "*"

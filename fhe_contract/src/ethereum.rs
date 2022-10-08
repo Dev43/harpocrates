@@ -45,22 +45,28 @@ fn verify_sig(message: &str, sig: &[u8]) -> Result<String, Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
 
-    use walletconnect::ethers_core::utils::{hex, keccak256};
+    use ethers::utils::hash_message;
+    use walletconnect::ethers_core::utils::hex;
 
     use super::*;
 
     #[tokio::test]
     async fn it_runs() -> Result<(), Box<dyn std::error::Error>> {
         let msg = "hello";
-        let h = keccak256(msg.as_bytes());
-        let message_hash = hex::encode(&h);
+        // let h = hash_message(msg.as_bytes());
+        // let message_hash = hex::encode(&h);
+
+        const PREFIX: &str = "\x19Ethereum Signed Message:\n";
+
+        let mut eth_message = format!("{}{}", PREFIX, msg.len()).into_bytes();
+        eth_message.extend_from_slice(msg.as_bytes());
 
         let c = EthClient::new().await.unwrap();
         let (acc, sig) = c.get_sig(msg).await.unwrap();
         println!("{}", acc);
         println!("{}", sig);
 
-        verify_sig(&message_hash, sig.as_bytes())?;
+        verify_sig(&String::from_utf8(eth_message).unwrap(), sig.as_bytes())?;
         Ok(())
     }
 }

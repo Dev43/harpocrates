@@ -13,3 +13,5 @@ pub mod snarkjs;
 pub mod ascii;
 
 pub mod ethereum;
+
+pub mod webassembly;

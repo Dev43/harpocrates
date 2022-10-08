@@ -133,7 +133,7 @@ async fn deploy() -> Result<String, Box<dyn std::error::Error>> {
     println!("Deploy: Arweave Tx ID: {} ", tx_id);
 
     // we wait till mined (main txn for now)
-    let _mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
+    // let _mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
 
     println!("Deploy: Contract inner ID: {} ", contract_id);
 
@@ -163,7 +163,7 @@ async fn init_zk(id: &String) -> Result<(), Box<dyn std::error::Error>> {
     println!("ZKSnark: Arweave Tx ID: {} ", tx_id);
 
     // we wait till mined (main txn for now)
-    let _mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
+    // let _mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
 
     println!(
         "ZKSnark: ZKSnark initialized\n Arweave Tx ID: {} \n For Contract ID: {}",
@@ -429,7 +429,7 @@ async fn vote(id: &String, index: &usize) -> Result<(), Box<dyn std::error::Erro
     println!("Vote: Your vote is being sent ArID {} ", res.0);
 
     // we wait till mined (main txn for now)
-    let _mined_res = ar.wait_till_mined(&res.0).await.unwrap();
+    // let _mined_res = ar.wait_till_mined(&res.0).await.unwrap();
 
     println!("Vote: Your vote has been mined for {} ", contract_id);
     Ok(())
