@@ -1,4 +1,5 @@
 use crate::ethereum::EthClient;
+#[allow(unused)]
 use arloader::{
     error::Error,
     status::StatusCode,
@@ -60,6 +61,7 @@ pub struct ArweaveUploader {
 }
 
 impl ArweaveUploader {
+    #[allow(unused)]
     fn new(client: Arweave) -> Self {
         ArweaveUploader { client }
     }
@@ -90,6 +92,7 @@ enum ContractType {
 }
 
 pub struct Ar {
+    #[allow(unused)]
     client: Arweave,
     uploader: Arc<dyn Uploader>,
 }
@@ -310,7 +313,7 @@ impl Ar {
                 .unwrap()
                 .status();
 
-            println!("{}", status);
+            // println!("{}", status);
         }
 
         Ok(())

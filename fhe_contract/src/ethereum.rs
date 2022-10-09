@@ -9,12 +9,12 @@ pub struct EthClient {
 impl EthClient {
     pub async fn new() -> Result<Self, Box<dyn Error>> {
         let c = Client::new(
-            "ethberlin",
+            "web3infra",
             Metadata {
-                description: "Ethberlin WallectConnect for harpocrates".into(),
+                description: "Web3infra WallectConnect for harpocrates".into(),
                 url: "https://github.com/nlordell/walletconnect-rs".parse()?,
                 icons: vec!["https://avatars0.githubusercontent.com/u/4210206".parse()?],
-                name: "EthBerlin WallectConnect for harpocrates".into(),
+                name: "Web3infra WallectConnect for harpocrates".into(),
             },
         )?;
 

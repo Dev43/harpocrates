@@ -131,6 +131,7 @@ async fn deploy() -> Result<String, Box<dyn std::error::Error>> {
     )?;
 
     println!("Deploy: Arweave Tx ID: {} ", tx_id);
+    println!("Waiting for contract to deploy...");
 
     // we wait till mined (main txn for now)
     let _mined_res = ar.wait_till_mined(&tx_id).await.unwrap();
@@ -186,6 +187,7 @@ async fn init_state(cid: &String) -> Result<(), Box<dyn std::error::Error>> {
     let r = ar.initialize_state(&contract_id, init_state).await.unwrap();
 
     println!("Init: Arweave Tx ID: {} ", r.0);
+    println!("Waiting for bundle to be mined...");
 
     // we wait till mined (main txn for now)
     let _mined_res = ar.wait_till_mined(&r.0).await.unwrap();

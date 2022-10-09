@@ -6,6 +6,8 @@
 
 Video: https://youtu.be/5Jnr_49mzXU
 
+**More information about the web3infra hackathon under submission.md**
+
 ## Description
 
 Harpocrates is a POC providing a Permanent Fully Homomorphic Encryption (FHE) smart contract on Arweave.
@@ -49,7 +51,9 @@ Make sure you have [`snarkjs`](https://github.com/iden3/snarkjs) installed.
 
 To run this, first run `make` in the root of the project. This download the necessary dependencies and also set you up to be able to create and verify Zkproofs :).
 
-Now, if you want this to be deployed to Arweave, you will need to have an arweave keyfile with some AR on it. You can get a pre-funded one [here](https://faucet.arweave.net/). Make sure to have the keyfile in the `fhe_contract` repository with the name `arweave-keyfile.json`.
+Now, if you want this to be deployed to Arweave, you will need to have an arweave keyfile with some AR from **everpay** on it. Make sure to have the keyfile in the `fhe_contract` repository with the name `arweave-keyfile.json`.
+
+From there, make sure you have metamask (or any wallet that is WalletConnect compatible). You don't need any ETH on the wallet, it will simply be for signing messages.
 
 Now all you have to do is go into the fhe_contract repository `fhe_contract` and run `cargo run -- run-all`. From there, just follow the necessary prompts!
 
@@ -90,6 +94,7 @@ SUBCOMMANDS:
   - [x] "fetch-latest" gets the latest state of the contract (simply the data)
   - [x] "compute-latest" runs through the local txns to compute the current state
   - [x] "vote" votes. or waits until there is another vote to add (also publishes a ZKsnark)
+  - [x] allow for arseeding to deploy necessary data
 
   TODO
 
