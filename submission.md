@@ -1,6 +1,6 @@
 # Web3Infra Submission
 
-This repo is part of my submission to the Web3Infra hackathon by EverVision.
+This repo is part of my submission to the Web3Infra hackathon by EverVision. It was originally created during EthBerlin and has been extended.
 
 ## What was done
 
